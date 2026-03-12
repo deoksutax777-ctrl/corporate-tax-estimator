@@ -34,17 +34,21 @@ h1 { text-align: center; margin-bottom: 20px; font-size: 1.5em; }
 .btn-calc { display: block; margin: 16px auto 0; padding: 10px 40px; background: #1a56db; color: #fff; border: none; border-radius: 6px; font-size: 1em; cursor: pointer; font-weight: bold; }
 .btn-calc:hover { background: #1444b0; }
 
-/* 결과 테이블 */
+/* 결과 테이블 — 엑셀 서식 색상 동일 적용 */
 .result-section { background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-.result-section h2 { font-size: 1.1em; margin-bottom: 12px; color: #1a56db; border-bottom: 2px solid #1a56db; padding-bottom: 6px; }
+.result-section h2 { font-size: 1.1em; margin-bottom: 12px; color: #00338D; border-bottom: 2px solid #00338D; padding-bottom: 6px; }
 table.result { width: 100%; border-collapse: collapse; font-size: 0.88em; }
-table.result th, table.result td { border: 1px solid #ddd; padding: 6px 10px; }
-table.result th { background: #f0f5ff; font-weight: 600; text-align: center; }
+table.result th, table.result td { border: 1px solid #ccc; padding: 7px 10px; }
+table.result th { background: #333F4F; color: #fff; font-weight: 700; text-align: center; }
 table.result td { text-align: right; }
-table.result td:first-child { text-align: left; font-weight: 500; background: #fafafa; }
-table.result tr.subtotal { background: #f8f9fa; font-weight: 600; }
-table.result tr.total { background: #e8f0fe; font-weight: 700; font-size: 0.95em; }
-table.result tr.section-header td { background: #1a56db; color: #fff; font-weight: 700; text-align: center; }
+table.result td:first-child { text-align: left; font-weight: 500; }
+/* 행별 색상 클래스 */
+table.result tr.row-blue td { background: #D9E1F2; font-weight: 700; }
+table.result tr.row-orange td { background: #FCE4D6; font-weight: 700; }
+table.result tr.row-yellow td { background: #FFF2CC; }
+table.result tr.row-green td { background: #E2EFDA; color: #FF0000; font-weight: 700; }
+table.result tr.row-bright td { background: #FFFF00; font-weight: 700; }
+table.result tr.section-header td { background: #333F4F; color: #fff; font-weight: 700; text-align: center; }
 .negative { color: #dc2626; }
 
 .info-box { background: #fffbeb; border: 1px solid #fbbf24; border-radius: 6px; padding: 10px 14px; margin-top: 12px; font-size: 0.85em; }
@@ -586,26 +590,26 @@ function renderResult(companyName, scenarios) {
 
   // 손익 섹션
   html += '<tr class="section-header"><td colspan="' + (colCount + 1) + '">손익계산</td></tr>';
-  html += row('매출액', 'revenue');
-  html += row('매출총이익', 'grossProfit');
-  html += row('영업이익', 'opIncome');
-  html += row('당기순이익', 'netIncome', 'subtotal');
-  html += row('(+) 익금산입·손금불산입', 'taxAdjPlus');
-  html += row('(-) 손금산입·익금불산입', 'taxAdjMinus');
-  html += row('차가감소득금액', 'taxableIncome', 'subtotal');
+  html += row('매출액', 'revenue', 'row-blue');
+  html += row('매출총이익', 'grossProfit', 'row-blue');
+  html += row('영업이익', 'opIncome', 'row-blue');
+  html += row('당기순이익', 'netIncome', 'row-orange');
+  html += row('(+) 익금산입·손금불산입', 'taxAdjPlus', 'row-yellow');
+  html += row('(-) 손금산입·익금불산입', 'taxAdjMinus', 'row-yellow');
+  html += row('차가감소득금액', 'taxableIncome', 'row-orange');
 
   // 세액 섹션
   html += '<tr class="section-header"><td colspan="' + (colCount + 1) + '">세액 계산</td></tr>';
-  html += row('산출세액', 'computedTax');
+  html += row('산출세액', 'computedTax', 'row-blue');
   html += row('(-) 중소기업특별세액감면', 'smeDeduction');
   html += row('(-) 연구인력개발비세액공제', 'rdCredit');
   html += row('(-) 고용증대세액공제', 'empDeduction');
   html += row('(-) 사회보험료세액공제', 'socialCredit');
   html += row('(-) 중간예납세액', 'interimTax');
-  html += row('법인세', 'corpTax', 'subtotal');
-  html += row('지방소득세', 'localTax');
-  html += row('농특세', 'farmTax');
-  html += row('총 납부할 세액', 'totalTax', 'total');
+  html += row('법인세', 'corpTax', 'row-orange');
+  html += row('지방소득세', 'localTax', 'row-orange');
+  html += row('농특세', 'farmTax', 'row-orange');
+  html += row('총 납부할 세액', 'totalTax', 'row-bright');
 
   // 참고
   html += '<tr class="section-header"><td colspan="' + (colCount + 1) + '">참고</td></tr>';
