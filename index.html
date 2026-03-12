@@ -636,7 +636,7 @@ async function exportXlsx() {
   for (let c = 3; c <= lastCol; c++) ws.getColumn(c).width = ns === 1 ? 25 : 20;
   ws.getColumn(bigoCol).width = 50;
 
-  const nf = '#,##0;\\-#,##0;"-"';
+  const nf = '_-* #,##0_-;\\-* #,##0_-;_-* "-"_-;_-@_-';
   const pf = '0.00%';
   const bd = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
   const f14 = {name:'맑은 고딕',size:14};
@@ -647,22 +647,40 @@ async function exportXlsx() {
   const yfill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFF00'}};
   const hfill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFD9E2F3'}};
 
+  // 현재날짜
+  const now = new Date();
+  const yy = String(now.getFullYear()).slice(2);
+  const mm = String(now.getMonth()+1).padStart(2,'0');
+  const dd = String(now.getDate()).padStart(2,'0');
+  const dateStr = yy+'.'+mm+'.'+dd;
+
+  // Row 1-4: spacer rows
+  ws.getRow(1).height = 28; ws.getRow(2).height = 28;
+  ws.getRow(3).height = 6; ws.getRow(4).height = 18;
+
   // Row 5-6: Company name
   ws.mergeCells(5,2,6,2);
   const cc = ws.getCell(5,2);
   cc.value = companyName;
   cc.font = {name:'맑은 고딕',size:20,bold:true};
   cc.alignment = {horizontal:'center',vertical:'middle'};
+  cc.numFmt = nf;
   ws.getRow(5).height = 17; ws.getRow(6).height = 31;
+
+  // Row 7: spacer
+  ws.getRow(7).height = 29;
 
   // Row 8: Title
   ws.getRow(8).height = 30;
   ws.getCell(8,1).value = '▶';
   ws.getCell(8,1).font = {name:'맑은 고딕',size:18,bold:true,color:{argb:'FF0099FF'}};
   ws.getCell(8,1).alignment = {horizontal:'right',vertical:'middle'};
-  ws.getCell(8,2).value = new Date().getFullYear() + '년 예상 법인세';
+  ws.getCell(8,2).value = now.getFullYear() + '년 예상 법인세';
   ws.getCell(8,2).font = {name:'맑은 고딕',size:18,bold:true};
   ws.getCell(8,2).alignment = {vertical:'middle'};
+
+  // Row 9: spacer
+  ws.getRow(9).height = 18;
 
   // Row 10-11: Headers
   ws.getRow(10).height = 30; ws.getRow(11).height = 30;
@@ -678,7 +696,7 @@ async function exportXlsx() {
 
   for (let i = 0; i < ns; i++) {
     const c = ws.getCell(11,3+i);
-    c.value = scenarios[i].label === '기본' ? (new Date().getFullYear()-1)+'.12.31 기준' : scenarios[i].label;
+    c.value = scenarios[i].label === '기본' ? dateStr+' 기준' : scenarios[i].label;
     c.font = f14b; c.fill = hfill; c.alignment = {horizontal:'center',vertical:'middle'}; c.border = bd;
   }
   const bh = ws.getCell(11,bigoCol);
@@ -749,6 +767,9 @@ async function exportXlsx() {
   ws.getCell(38,2).font = {...f14b, color:{argb:'FFFF0000'}};
   wr(39, '총 납부할 세액', sv('totalTax'), {b:true, f:yfill});
   wr(40, '당기순이익율', scenarios.map(s => s.netMargin), {pct:true});
+
+  // Row 41: spacer between data and auxiliary
+  ws.getRow(41).height = 24;
 
   // Auxiliary rows (42-47)
   function wrAux(r, label, vals, bigo) {
