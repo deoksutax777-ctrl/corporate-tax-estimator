@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>법인세 예상 세액표</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #f5f5f5; color: #333; padding: 20px; }
+h1 { text-align: center; margin-bottom: 20px; font-size: 1.5em; }
+.container { max-width: 1400px; margin: 0 auto; }
+
+/* 입력 영역 */
+.input-section { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.input-section h2 { font-size: 1.1em; margin-bottom: 12px; color: #1a56db; border-bottom: 2px solid #1a56db; padding-bottom: 6px; }
+.upload-area { border: 2px dashed #ccc; border-radius: 8px; padding: 30px; text-align: center; cursor: pointer; transition: border-color 0.2s; margin-bottom: 12px; }
+.upload-area:hover, .upload-area.dragover { border-color: #1a56db; background: #f0f5ff; }
+.upload-area input[type=file] { display: none; }
+
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; }
+.form-group { display: flex; align-items: center; gap: 8px; }
+.form-group label { min-width: 140px; font-size: 0.9em; font-weight: 500; }
+.form-group input { flex: 1; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; text-align: right; }
+.form-group input:focus { outline: none; border-color: #1a56db; box-shadow: 0 0 0 2px rgba(26,86,219,0.15); }
+.form-group.full { grid-column: 1 / -1; }
+.form-group.company input { text-align: left; font-weight: bold; }
+
+.scenario-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 16px; }
+.scenario-grid label { font-size: 0.85em; }
+.scenario-grid input { width: 100%; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; text-align: right; font-size: 0.9em; }
+
+.btn-calc { display: block; margin: 16px auto 0; padding: 10px 40px; background: #1a56db; color: #fff; border: none; border-radius: 6px; font-size: 1em; cursor: pointer; font-weight: bold; }
+.btn-calc:hover { background: #1444b0; }
+
+/* 결과 테이블 */
+.result-section { background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.result-section h2 { font-size: 1.1em; margin-bottom: 12px; color: #1a56db; border-bottom: 2px solid #1a56db; padding-bottom: 6px; }
+table.result { width: 100%; border-collapse: collapse; font-size: 0.88em; }
+table.result th, table.result td { border: 1px solid #ddd; padding: 6px 10px; }
+table.result th { background: #f0f5ff; font-weight: 600; text-align: center; }
+table.result td { text-align: right; }
+table.result td:first-child { text-align: left; font-weight: 500; background: #fafafa; }
+table.result tr.subtotal { background: #f8f9fa; font-weight: 600; }
+table.result tr.total { background: #e8f0fe; font-weight: 700; font-size: 0.95em; }
+table.result tr.section-header td { background: #1a56db; color: #fff; font-weight: 700; text-align: center; }
+.negative { color: #dc2626; }
+
+.info-box { background: #fffbeb; border: 1px solid #fbbf24; border-radius: 6px; padding: 10px 14px; margin-top: 12px; font-size: 0.85em; }
+
+@media print {
+  body { background: #fff; padding: 0; }
+  .input-section, .upload-area, .btn-calc { display: none; }
+  .result-section { box-shadow: none; padding: 0; }
+  table.result { font-size: 0.8em; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>법인세 예상 세액표</h1>
+
+  <!-- 엑셀 업로드 -->
+  <div class="input-section">
+    <h2>손익계산서 업로드</h2>
+    <div class="upload-area" id="dropArea">
+      <p>손익계산서 엑셀 파일(.xls/.xlsx)을 여기에 드래그하거나 클릭하여 업로드</p>
+      <input type="file" id="fileInput" accept=".xls,.xlsx">
+    </div>
+    <div id="uploadStatus" style="text-align:center; font-size:0.9em; color:#666;"></div>
+  </div>
+
+  <!-- 수기 입력 -->
+  <div class="input-section">
+    <h2>손익계산서 입력</h2>
+    <div class="form-grid">
+      <div class="form-group full company">
+        <label>회사명</label>
+        <input type="text" id="companyName" value="">
+      </div>
+
+      <div class="form-group"><label>미술품판매수입</label><input type="text" id="artSales" value="0"></div>
+      <div class="form-group"><label>공사수입금</label><input type="text" id="constIncome" value="0"></div>
+      <div class="form-group"><label>상품판매</label><input type="text" id="goodsSales" value="0"></div>
+      <div class="form-group"><label>서비스매출</label><input type="text" id="serviceSales" value="0"></div>
+
+      <div class="form-group"><label>상품매출원가</label><input type="text" id="goodsCost" value="0"></div>
+      <div class="form-group"><label>공사매출원가</label><input type="text" id="constCost" value="0"></div>
+
+      <div class="form-group"><label>판매비와관리비</label><input type="text" id="sga" value="0"></div>
+      <div class="form-group"><label>영업외수익</label><input type="text" id="nonOpIncome" value="0"></div>
+      <div class="form-group"><label>영업외비용</label><input type="text" id="nonOpExpense" value="0"></div>
+      <div class="form-group"><label>손금익금불산입(순)</label><input type="text" id="taxAdj" value="0"></div>
+    </div>
+  </div>
+
+  <!-- 세액 조정 -->
+  <div class="input-section">
+    <h2>세액 조정 항목</h2>
+    <div class="form-grid">
+      <div class="form-group"><label>중소기업감면 비율(%)</label><input type="text" id="smeRate" value="20"></div>
+      <div class="form-group"><label>연구인력개발비 대상</label><input type="text" id="rdAmount" value="0"></div>
+      <div class="form-group"><label>고용증대공제 가능액</label><input type="text" id="empCredit" value="0"></div>
+      <div class="form-group"><label>사회보험료 세액공제</label><input type="text" id="socialCredit" value="0"></div>
+      <div class="form-group"><label>중간예납세액</label><input type="text" id="interimTax" value="0"></div>
+    </div>
+
+    <h3 style="font-size:0.95em; margin:16px 0 8px; color:#555;">추가경비 시나리오</h3>
+    <div class="scenario-grid">
+      <div><label>추가경비 1</label><input type="text" id="addExp1" value="0"></div>
+      <div><label>추가경비 2</label><input type="text" id="addExp2" value="0"></div>
+      <div><label>추가경비 3</label><input type="text" id="addExp3" value="0"></div>
+    </div>
+  </div>
+
+  <button class="btn-calc" onclick="calculate()">세액 계산</button>
+
+  <!-- 결과 -->
+  <div class="result-section" id="resultSection" style="display:none; margin-top:20px;">
+    <h2 id="resultTitle">예상 세액표</h2>
+    <table class="result" id="resultTable"></table>
+    <div class="info-box" id="infoBox"></div>
+  </div>
+</div>
+
+<script>
+// 숫자 포맷
+function fmt(n) {
+  if (n === null || n === undefined || isNaN(n)) return '-';
+  const v = Math.round(n);
+  const s = Math.abs(v).toLocaleString('ko-KR');
+  if (v < 0) return '<span class="negative">(' + s + ')</span>';
+  return s;
+}
+
+// 입력값 파싱 (콤마 제거)
+function pv(id) {
+  const el = document.getElementById(id);
+  if (!el) return 0;
+  return Number(String(el.value).replace(/,/g, '')) || 0;
+}
+
+// 입력 필드에 숫자 자동 콤마 포맷
+document.querySelectorAll('.form-grid input[type=text], .scenario-grid input[type=text]').forEach(inp => {
+  if (inp.id === 'companyName' || inp.id === 'smeRate') return;
+  inp.addEventListener('blur', function() {
+    const v = Number(this.value.replace(/,/g, ''));
+    if (!isNaN(v) && this.value.trim() !== '') {
+      this.value = v.toLocaleString('ko-KR');
+    }
+  });
+});
+
+// 엑셀 업로드
+const dropArea = document.getElementById('dropArea');
+const fileInput = document.getElementById('fileInput');
+
+dropArea.addEventListener('click', () => fileInput.click());
+dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.classList.add('dragover'); });
+dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
+dropArea.addEventListener('drop', e => {
+  e.preventDefault();
+  dropArea.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      parseIncomeStatement(data);
+      document.getElementById('uploadStatus').textContent = '업로드 완료: ' + file.name;
+      document.getElementById('uploadStatus').style.color = '#16a34a';
+    } catch (err) {
+      document.getElementById('uploadStatus').textContent = '파일 읽기 실패: ' + err.message;
+      document.getElementById('uploadStatus').style.color = '#dc2626';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ═══════ 손익계산서 파서 (세무사랑 · 위하고 · 기존 양식 겸용) ═══════ */
+
+function parseNum(v) {
+  if (v == null || (typeof v === 'number' && isNaN(v))) return 0;
+  let s = String(v).trim();
+  if (!s || s === 'nan' || s === 'NaN') return 0;
+  if (s.includes('△')) { s = s.replace('△', '').replace(/,/g, '').trim(); try { return -Math.abs(parseFloat(s)); } catch { return 0; } }
+  s = s.replace(/,/g, '');
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+
+function detectFmt(rows) {
+  const maxCol = (rows || []).reduce((mx, r) => (r || []).length > mx ? (r || []).length : mx, 0);
+  let hasPct = false;
+  for (let i = 0; i < Math.min(rows.length, 12); i++)
+    for (let c = 0; c < (rows[i] || []).length; c++)
+      if (String(rows[i][c] || '').includes('비율')) hasPct = true;
+
+  let headerRow = -1;
+  for (let i = 0; i < Math.min(rows.length, 12); i++) {
+    const row = rows[i] || [];
+    for (let c = 0; c < Math.min(row.length, 3); c++) {
+      if (String(row[c] || '').replace(/\s/g, '').includes('과목')) { headerRow = i; break; }
+    }
+    if (headerRow >= 0) break;
+  }
+
+  if (headerRow >= 0) {
+    const dataStart = headerRow + 2;
+    for (let i = dataStart; i < Math.min(rows.length, dataStart + 10); i++) {
+      const row = rows[i] || [];
+      const c0 = String(row[0] || '').trim();
+      if (/^[Ⅰ-Ⅹ]{1,3}\.?$/.test(c0) || /^[①-⑩]$/.test(c0) || /^\d+$/.test(c0)) {
+        for (let c = 1; c <= Math.min(4, row.length - 1); c++) {
+          const v = String(row[c] || '').trim();
+          if (v && isNaN(+v.replace(/,/g, ''))) {
+            if (hasPct) return 'sm_pl';
+            if (maxCol >= 7) return 'sm_mc';
+            return 'sm_mc';
+          }
+        }
+      }
+    }
+  }
+
+  if (hasPct) return 'pl7';
+  for (let i = 0; i < Math.min(rows.length, 12); i++) {
+    const row = rows[i] || [];
+    for (let c = 0; c < row.length; c++) {
+      const s = String(row[c] || '');
+      if (s.match(/\(전\)기/) || s.match(/\(전전\)기/) || s.match(/\(당\)기/)) return 'std5';
+    }
+  }
+  return 'bs5';
+}
+
+function findHeaderRows(rows) {
+  const headers = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i] || [];
+    for (let c = 0; c < Math.min(row.length, 3); c++) {
+      if (String(row[c] || '').replace(/\s/g, '').includes('과목')) { headers.push(i); break; }
+    }
+  }
+  return headers;
+}
+
+function isPageTitle(row) {
+  for (let c = 0; c < (row || []).length; c++) {
+    const v = String(row[c] || '').replace(/\s/g, '');
+    if (v.includes('원가명세서') || v.includes('재무상태표') || v.includes('손익계산서')) return true;
+  }
+  return false;
+}
+
+function isMetaRow(row) {
+  if (!row || row.length === 0) return true;
+  const hasAny = row.some(c => c != null && String(c).trim() !== '');
+  if (!hasAny) return true;
+  for (let c = 0; c < Math.min(row.length, 3); c++) {
+    const s = String(row[c] || '').replace(/\s/g, '');
+    if (s.includes('회사명') || s.includes('과목') || s.includes('금액') || s.match(/^제\d+기/)) return true;
+  }
+  return false;
+}
+
+/**
+ * extractPlItems: 손익계산서 항목 추출 (세무사랑 + 위하고 + 기존 양식)
+ * 반환: [{name, curr, prev}, ...]
+ */
+function extractPlItems(rows) {
+  const fmtType = detectFmt(rows);
+  console.log('[PL파서] 양식:', fmtType);
+
+  if (fmtType.startsWith('sm_')) return extractPlItemsSm(rows, fmtType);
+
+  // === 위하고/기존 양식 ===
+  const items = [];
+  let ca, pa, cd, pd;
+  if (fmtType === 'pl7') { ca = 2; pa = 5; cd = 1; pd = 4; }
+  else { ca = 2; pa = 4; cd = 1; pd = 3; }
+
+  let startRow = 2;
+  const headerRows = findHeaderRows(rows);
+  if (headerRows.length > 0) startRow = headerRows[0] + 2;
+
+  const skipRows = new Set();
+  if (headerRows.length > 1) {
+    for (let h = 1; h < headerRows.length; h++) {
+      for (let r = Math.max(headerRows[h] - 6, 0); r <= headerRows[h] + 1; r++) {
+        const row = rows[r] || [];
+        if (isPageTitle(row) || isMetaRow(row)) skipRows.add(r);
+      }
+    }
+  }
+
+  for (let i = startRow; i < rows.length; i++) {
+    if (skipRows.has(i)) continue;
+    const row = rows[i] || [];
+    const raw = String(row[0] || '').trim();
+    if (!raw || raw === 'nan' || raw === 'NaN' || raw === '0') continue;
+    const cl = raw.replace(/\s/g, '');
+    if (['자산', '부채', '자본'].includes(cl)) continue;
+
+    let curr = parseNum(row[ca]);
+    let prev = parseNum(row[pa]);
+    if (curr === 0) curr = parseNum(row[cd]);
+    if (prev === 0) prev = parseNum(row[pd]);
+
+    const name = raw.replace(/^[Ⅰ-Ⅹ]{1,3}\.\s*/, '').replace(/^[①-⑩]\s*/, '').replace(/^\(\d+\)\s*/, '').replace(/^[0-9]+\.\s*/, '').trim();
+    items.push({ name, curr, prev });
+  }
+  console.log('[PL파서] 추출:', items.length, '개');
+  return items;
+}
+
+/**
+ * extractPlItemsSm: 세무사랑 전용 손익계산서 파서
+ */
+function extractPlItemsSm(rows, fmtType) {
+  const items = [];
+  let ca, pa, cd, pd, nameCols;
+
+  if (fmtType === 'sm_pl') {
+    ca = 3; pa = 6; cd = 2; pd = 5;
+    nameCols = [1];
+  } else {
+    ca = 4; pa = 6; cd = 3; pd = 5;
+    nameCols = [2, 1];
+  }
+
+  let startRow = 2;
+  const headerRows = findHeaderRows(rows);
+  if (headerRows.length > 0) startRow = headerRows[0] + 2;
+
+  const skipRows = new Set();
+  if (headerRows.length > 1) {
+    for (let h = 1; h < headerRows.length; h++) {
+      for (let r = Math.max(headerRows[h] - 8, 0); r <= headerRows[h] + 1; r++) {
+        const row = rows[r] || [];
+        if (isPageTitle(row) || isMetaRow(row)) skipRows.add(r);
+      }
+    }
+  }
+
+  for (let i = startRow; i < rows.length; i++) {
+    if (skipRows.has(i)) continue;
+    const row = rows[i] || [];
+
+    let rawName = '';
+    for (const nc of nameCols) {
+      const v = String(row[nc] || '').trim();
+      if (v && v !== 'nan' && v !== 'NaN' && v !== '0' && v !== 'None' && isNaN(+v.replace(/,/g, ''))) { rawName = v; break; }
+    }
+    if (!rawName) {
+      const numCols = new Set([ca, pa, cd, pd]);
+      for (let c = 1; c < row.length; c++) {
+        if (numCols.has(c)) continue;
+        const v = String(row[c] || '').trim();
+        if (!v || v === 'nan' || v === 'NaN' || v === 'None') continue;
+        if (!isNaN(+v.replace(/,/g, ''))) continue;
+        if (/^[Ⅰ-Ⅹ]{1,3}\.?$/.test(v) || /^[①-⑩]$/.test(v) || /^\d+$/.test(v)) continue;
+        rawName = v; break;
+      }
+    }
+    if (!rawName) continue;
+
+    const cl = rawName.replace(/\s/g, '');
+    if (['자산', '부채', '자본'].includes(cl)) continue;
+    if (cl.includes('비율')) continue;
+    if (isPageTitle(row)) continue;
+
+    let curr = parseNum(row[ca]);
+    let prev = parseNum(row[pa]);
+    if (curr === 0) curr = parseNum(row[cd]);
+    if (prev === 0) prev = parseNum(row[pd]);
+
+    items.push({ name: rawName, curr, prev });
+  }
+  console.log('[PL파서-세무사랑] 추출:', items.length, '개');
+  return items;
+}
+
+/**
+ * parseIncomeStatement: 추출된 항목을 입력 필드에 매핑
+ */
+function parseIncomeStatement(data) {
+  const items = extractPlItems(data);
+
+  // 매핑: 항목명 키워드 → 입력 필드 ID, 매출 세부항목은 개별금액(curr), 합계항목은 합계금액
+  const fieldMappings = [
+    // 매출 세부항목 (개별 금액)
+    { keywords: ['미술품판매'], id: 'artSales' },
+    { keywords: ['공사수입'], id: 'constIncome' },
+    { keywords: ['상품판매'], id: 'goodsSales' },
+    { keywords: ['서비스매출'], id: 'serviceSales' },
+    // 원가 (합계)
+    { keywords: ['상품매출원가'], id: 'goodsCost' },
+    { keywords: ['도급공사매출원가', '공사매출원가'], id: 'constCost' },
+    // 판관비 (합계)
+    { keywords: ['판매비와관리비', '판관비'], id: 'sga' },
+    // 영업외 (합계)
+    { keywords: ['영업외수익'], id: 'nonOpIncome' },
+    { keywords: ['영업외비용'], id: 'nonOpExpense' },
+  ];
+
+  const matched = new Set();
+
+  for (const item of items) {
+    const cl = item.name.replace(/\s/g, '');
+
+    for (const fm of fieldMappings) {
+      if (matched.has(fm.id)) continue;
+      if (fm.keywords.some(k => cl.includes(k))) {
+        const val = Math.abs(item.curr);
+        if (val) {
+          document.getElementById(fm.id).value = val.toLocaleString('ko-KR');
+          matched.add(fm.id);
+          console.log('[매핑]', item.name, '→', fm.id, '=', val);
+        }
+        break;
+      }
+    }
+  }
+
+  // 매출액이 세부항목으로 안 잡힌 경우: 매출액 합계를 서비스매출에 넣기
+  if (!matched.has('artSales') && !matched.has('constIncome') && !matched.has('goodsSales') && !matched.has('serviceSales')) {
+    const revItem = items.find(i => i.name.replace(/\s/g, '').includes('매출액'));
+    if (revItem && revItem.curr) {
+      document.getElementById('serviceSales').value = Math.abs(revItem.curr).toLocaleString('ko-KR');
+      console.log('[매핑-fallback] 매출액 → serviceSales =', revItem.curr);
+    }
+  }
+
+  // 매출원가가 세부로 안 잡힌 경우: 매출원가 합계를 상품매출원가에
+  if (!matched.has('goodsCost') && !matched.has('constCost')) {
+    const costItem = items.find(i => {
+      const n = i.name.replace(/\s/g, '');
+      return n.includes('매출원가') && !n.includes('상품') && !n.includes('공사') && !n.includes('도급');
+    });
+    if (costItem && costItem.curr) {
+      document.getElementById('goodsCost').value = Math.abs(costItem.curr).toLocaleString('ko-KR');
+      console.log('[매핑-fallback] 매출원가 → goodsCost =', costItem.curr);
+    }
+  }
+
+  console.log('[파싱완료] 매핑된 필드:', [...matched].join(', '));
+}
+
+function calculate() {
+  const companyName = document.getElementById('companyName').value || '(회사명)';
+
+  // 기본 입력
+  const artSales = pv('artSales');
+  const constIncome = pv('constIncome');
+  const goodsSales = pv('goodsSales');
+  const serviceSales = pv('serviceSales');
+  const goodsCost = pv('goodsCost');
+  const constCost = pv('constCost');
+  const sga = pv('sga');
+  const nonOpIncome = pv('nonOpIncome');
+  const nonOpExpense = pv('nonOpExpense');
+  const taxAdj = pv('taxAdj');
+
+  // 세액 조정
+  const smeRate = pv('smeRate') / 100;
+  const rdAmount = pv('rdAmount');
+  const empCredit = pv('empCredit');
+  const socialCredit = pv('socialCredit');
+  const interimTax = pv('interimTax');
+
+  // 추가경비
+  const addExps = [0, pv('addExp1'), pv('addExp2'), pv('addExp3')];
+
+  // 시나리오별 계산
+  const scenarios = addExps.map((addExp, idx) => {
+    const revenue = artSales + constIncome + goodsSales + serviceSales;
+    const grossProfit = revenue - goodsCost - constCost;
+    const opIncome = grossProfit - sga - addExp;
+    const netIncome = opIncome + nonOpIncome - nonOpExpense;
+    const taxableIncome = netIncome + taxAdj;
+
+    // 산출세액
+    let computedTax = 0;
+    if (taxableIncome <= 200000000) {
+      computedTax = taxableIncome * 0.09;
+    } else {
+      computedTax = (taxableIncome - 200000000) * 0.19 + 18000000;
+    }
+    if (taxableIncome <= 0) computedTax = 0;
+
+    // 최저한세
+    const minTax = netIncome * 0.07;
+
+    // 중소기업특별세액감면
+    const smeLimit = computedTax * smeRate;
+    const smeDeduction = Math.max(0, Math.min(smeLimit, computedTax - minTax));
+
+    // 연구인력개발비세액공제
+    const rdCredit = Math.max(0, Math.min(rdAmount * 0.25, computedTax - smeDeduction));
+
+    // 고용증대세액공제
+    const empLimit = (computedTax - netIncome * 0.07) - smeDeduction - socialCredit;
+    const empDeduction = Math.max(0, Math.min(empCredit, empLimit));
+
+    // 법인세
+    const corpTax = computedTax - smeDeduction - rdCredit - empDeduction - socialCredit - interimTax;
+
+    // 지방소득세
+    const localTax = computedTax * 0.1;
+
+    // 농특세
+    const farmTax = empDeduction * 0.2;
+
+    // 총 납부세액
+    const totalTax = corpTax + localTax + farmTax;
+
+    // 당기순이익율
+    const netMargin = revenue > 0 ? netIncome / revenue : 0;
+
+    return {
+      label: idx === 0 ? '기본' : '추가경비 ' + idx,
+      addExp,
+      revenue, grossProfit, opIncome, netIncome, taxableIncome,
+      computedTax, minTax, smeDeduction, rdCredit, empDeduction,
+      socialCredit, interimTax, corpTax, localTax, farmTax, totalTax, netMargin
+    };
+  });
+
+  // 활성 시나리오 (추가경비가 0이 아닌 것 포함)
+  const active = scenarios.filter((s, i) => i === 0 || s.addExp !== 0);
+
+  renderResult(companyName, active);
+}
+
+function renderResult(companyName, scenarios) {
+  const section = document.getElementById('resultSection');
+  section.style.display = 'block';
+  document.getElementById('resultTitle').textContent = companyName + ' 예상 세액표';
+
+  const colCount = scenarios.length;
+  const table = document.getElementById('resultTable');
+
+  let html = '<thead><tr><th style="width:200px">구분</th>';
+  for (const s of scenarios) {
+    html += '<th>' + s.label + (s.addExp ? '<br><small>(추가경비 ' + fmt(s.addExp) + ')</small>' : '') + '</th>';
+  }
+  html += '</tr></thead><tbody>';
+
+  function row(label, key, cls) {
+    let r = '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + label + '</td>';
+    for (const s of scenarios) r += '<td>' + fmt(s[key]) + '</td>';
+    return r + '</tr>';
+  }
+
+  // 손익 섹션
+  html += '<tr class="section-header"><td colspan="' + (colCount + 1) + '">손익계산</td></tr>';
+  html += row('매출액', 'revenue');
+  html += row('매출총이익', 'grossProfit');
+  html += row('영업이익', 'opIncome');
+  html += row('당기순이익', 'netIncome', 'subtotal');
+  html += row('차가감소득금액', 'taxableIncome', 'subtotal');
+
+  // 세액 섹션
+  html += '<tr class="section-header"><td colspan="' + (colCount + 1) + '">세액 계산</td></tr>';
+  html += row('산출세액', 'computedTax');
+  html += row('(-) 중소기업특별세액감면', 'smeDeduction');
+  html += row('(-) 연구인력개발비세액공제', 'rdCredit');
+  html += row('(-) 고용증대세액공제', 'empDeduction');
+  html += row('(-) 사회보험료세액공제', 'socialCredit');
+  html += row('(-) 중간예납세액', 'interimTax');
+  html += row('법인세', 'corpTax', 'subtotal');
+  html += row('지방소득세', 'localTax');
+  html += row('농특세', 'farmTax');
+  html += row('총 납부할 세액', 'totalTax', 'total');
+
+  // 참고
+  html += '<tr class="section-header"><td colspan="' + (colCount + 1) + '">참고</td></tr>';
+  html += '<tr><td>최저한세</td>';
+  for (const s of scenarios) html += '<td>' + fmt(s.minTax) + '</td>';
+  html += '</tr>';
+  html += '<tr><td>당기순이익율</td>';
+  for (const s of scenarios) html += '<td>' + (s.netMargin * 100).toFixed(2) + '%</td>';
+  html += '</tr>';
+
+  html += '</tbody>';
+  table.innerHTML = html;
+
+  // 세율 안내
+  document.getElementById('infoBox').innerHTML =
+    '<strong>법인세 세율:</strong> 과세표준 2억 이하 9%, 2억 초과~200억 이하 19%, 200억 초과~3,000억 이하 21%, 3,000억 초과 24%<br>' +
+    '<strong>최저한세:</strong> 과세표준(당기순이익) x 7% — 세액감면/공제의 하한<br>' +
+    '<strong>지방소득세:</strong> 산출세액 x 10% &nbsp;|&nbsp; <strong>농특세:</strong> 고용증대세액공제 x 20%';
+
+  section.scrollIntoView({ behavior: 'smooth' });
+}
+
+// 페이지 로드 시 입력값 포맷
+window.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.form-grid input[type=text], .scenario-grid input[type=text]').forEach(inp => {
+    if (inp.id === 'companyName' || inp.id === 'smeRate') return;
+    const v = Number(inp.value.replace(/,/g, ''));
+    if (!isNaN(v) && v !== 0) {
+      inp.value = v.toLocaleString('ko-KR');
+    }
+  });
+});
+</script>
+
+</body>
+</html>
