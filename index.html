@@ -92,7 +92,8 @@ table.result tr.section-header td { background: #1a56db; color: #fff; font-weigh
       <div class="form-group"><label>판매비와관리비</label><input type="text" id="sga" value="0"></div>
       <div class="form-group"><label>영업외수익</label><input type="text" id="nonOpIncome" value="0"></div>
       <div class="form-group"><label>영업외비용</label><input type="text" id="nonOpExpense" value="0"></div>
-      <div class="form-group"><label>손금익금불산입(순)</label><input type="text" id="taxAdj" value="0"></div>
+      <div class="form-group"><label>익금산입·손금불산입</label><input type="text" id="taxAdjPlus" value="0"></div>
+      <div class="form-group"><label>손금산입·익금불산입</label><input type="text" id="taxAdjMinus" value="0"></div>
     </div>
   </div>
 
@@ -473,7 +474,9 @@ function calculate() {
   const sga = pv('sga');
   const nonOpIncome = pv('nonOpIncome');
   const nonOpExpense = pv('nonOpExpense');
-  const taxAdj = pv('taxAdj');
+  const taxAdjPlus = pv('taxAdjPlus');   // 익금산입·손금불산입 (+)
+  const taxAdjMinus = pv('taxAdjMinus'); // 손금산입·익금불산입 (-)
+  const taxAdj = taxAdjPlus - taxAdjMinus;
 
   // 세액 조정
   const smeRate = pv('smeRate') / 100;
@@ -491,7 +494,7 @@ function calculate() {
     const grossProfit = revenue - goodsCost - constCost;
     const opIncome = grossProfit - sga - addExp;
     const netIncome = opIncome + nonOpIncome - nonOpExpense;
-    const taxableIncome = netIncome + taxAdj;
+    const taxableIncome = netIncome + taxAdjPlus - taxAdjMinus;
 
     // 산출세액
     let computedTax = 0;
@@ -534,6 +537,7 @@ function calculate() {
     return {
       label: idx === 0 ? '기본' : '추가경비 ' + idx,
       addExp,
+      taxAdjPlus, taxAdjMinus,
       revenue, grossProfit, opIncome, netIncome, taxableIncome,
       computedTax, minTax, smeDeduction, smeLimit, rdCredit, empDeduction,
       socialCredit, interimTax, corpTax, localTax, farmTax, totalTax, netMargin
@@ -546,7 +550,7 @@ function calculate() {
   lastCalcData = {
     companyName,
     scenarios: active,
-    inputs: { artSales, constIncome, goodsSales, serviceSales, goodsCost, constCost, sga, nonOpIncome, nonOpExpense, taxAdj, smeRate, rdAmount, empCredit, socialCredit, interimTax }
+    inputs: { artSales, constIncome, goodsSales, serviceSales, goodsCost, constCost, sga, nonOpIncome, nonOpExpense, taxAdjPlus, taxAdjMinus, taxAdj, smeRate, rdAmount, empCredit, socialCredit, interimTax }
   };
 
   renderResult(companyName, active);
@@ -578,6 +582,8 @@ function renderResult(companyName, scenarios) {
   html += row('매출총이익', 'grossProfit');
   html += row('영업이익', 'opIncome');
   html += row('당기순이익', 'netIncome', 'subtotal');
+  html += row('(+) 익금산입·손금불산입', 'taxAdjPlus');
+  html += row('(-) 손금산입·익금불산입', 'taxAdjMinus');
   html += row('차가감소득금액', 'taxableIncome', 'subtotal');
 
   // 세액 섹션
@@ -723,27 +729,28 @@ async function exportXlsx() {
   wr(23, '영업외수익', scenarios.map(() => inp.nonOpIncome));
   wr(24, '영업외비용', scenarios.map(() => inp.nonOpExpense));
   wr(25, '당기순이익', sv('netIncome'), {b:true, f:lfill});
-  wr(26, '손금&익금불산입', scenarios.map(() => inp.taxAdj), {b:true, f:lfill, h:40});
-  wr(27, '차가감소득금액', sv('taxableIncome'), {b:true, f:lfill});
+  wr(26, '(+) 익금산입·손금불산입', scenarios.map(() => inp.taxAdjPlus), {b:true, f:lfill});
+  wr(27, '(-) 손금산입·익금불산입', scenarios.map(() => inp.taxAdjMinus), {b:true, f:lfill});
+  wr(28, '차가감소득금액', sv('taxableIncome'), {b:true, f:lfill});
 
-  // 세액 rows (28-39)
-  wr(28, '산출세액', sv('computedTax'), {b:true, f:lfill});
-  wr(29, '중소기업특별세액감면', sv('smeDeduction'), {bigo:'서비스업 '+Math.round(inp.smeRate*100)+'%'});
-  wr(30, '연구인력개발비세액공제', sv('rdCredit'), {bigo:'급여+4대보험료 반영'});
-  wr(31, '고용증대세액공제', sv('empDeduction'));
-  wr(32, '사회보험료세액공제', scenarios.map(() => inp.socialCredit));
-  wr(33, '중간예납세액', scenarios.map(() => inp.interimTax));
-  // Row 34: empty spacer
-  ws.getRow(34).height = 33;
-  wr(35, '법인세', sv('corpTax'), {b:true, f:lfill});
-  wr(36, '지방소득세', sv('localTax'), {b:true, f:lfill});
-  wr(37, '농특세', sv('farmTax'), {b:true, f:lfill});
+  // 세액 rows (29-40)
+  wr(29, '산출세액', sv('computedTax'), {b:true, f:lfill});
+  wr(30, '중소기업특별세액감면', sv('smeDeduction'), {bigo:'서비스업 '+Math.round(inp.smeRate*100)+'%'});
+  wr(31, '연구인력개발비세액공제', sv('rdCredit'), {bigo:'급여+4대보험료 반영'});
+  wr(32, '고용증대세액공제', sv('empDeduction'));
+  wr(33, '사회보험료세액공제', scenarios.map(() => inp.socialCredit));
+  wr(34, '중간예납세액', scenarios.map(() => inp.interimTax));
+  // Row 35: empty spacer
+  ws.getRow(35).height = 33;
+  wr(36, '법인세', sv('corpTax'), {b:true, f:lfill});
+  wr(37, '지방소득세', sv('localTax'), {b:true, f:lfill});
+  wr(38, '농특세', sv('farmTax'), {b:true, f:lfill});
   // 농특세 label only red
-  ws.getCell(37,2).font = {...f14b, color:{argb:'FFFF0000'}};
-  wr(38, '총 납부할 세액', sv('totalTax'), {b:true, f:yfill});
-  wr(39, '당기순이익율', scenarios.map(s => s.netMargin), {pct:true});
+  ws.getCell(38,2).font = {...f14b, color:{argb:'FFFF0000'}};
+  wr(39, '총 납부할 세액', sv('totalTax'), {b:true, f:yfill});
+  wr(40, '당기순이익율', scenarios.map(s => s.netMargin), {pct:true});
 
-  // Auxiliary rows (41-46)
+  // Auxiliary rows (42-47)
   function wrAux(r, label, vals, bigo) {
     const row = ws.getRow(r); row.height = 28;
     const lc = row.getCell(2);
@@ -758,12 +765,12 @@ async function exportXlsx() {
     bc.font = f11b; bc.fill = lfill; bc.alignment = {horizontal:'center',vertical:'middle'}; bc.border = bd;
   }
 
-  wrAux(41, '고용증대공제가능액', scenarios.map(() => inp.empCredit));
-  wrAux(42, '최저한세', sv('minTax'), '법인세 결과와 금액이 같아야 함');
-  wrAux(43, '중소기업특별세액감면', sv('smeLimit'));
-  wrAux(44, '연구인력개발비 대상 금액', scenarios.map(() => inp.rdAmount));
-  wrAux(45, '연구인력개발비 세액공제', scenarios.map(() => inp.rdAmount * 0.25));
-  wrAux(46, '연구인력개발비 세액공제 잔액', scenarios.map(s => inp.rdAmount * 0.25 - s.rdCredit));
+  wrAux(42, '고용증대공제가능액', scenarios.map(() => inp.empCredit));
+  wrAux(43, '최저한세', sv('minTax'), '법인세 결과와 금액이 같아야 함');
+  wrAux(44, '중소기업특별세액감면', sv('smeLimit'));
+  wrAux(45, '연구인력개발비 대상 금액', scenarios.map(() => inp.rdAmount));
+  wrAux(46, '연구인력개발비 세액공제', scenarios.map(() => inp.rdAmount * 0.25));
+  wrAux(47, '연구인력개발비 세액공제 잔액', scenarios.map(s => inp.rdAmount * 0.25 - s.rdCredit));
 
   // Download
   const buf = await wb.xlsx.writeBuffer();
