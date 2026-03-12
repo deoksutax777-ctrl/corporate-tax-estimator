@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>법인세 예상 세액표</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #f5f5f5; color: #333; padding: 20px; }
@@ -119,12 +120,17 @@ table.result tr.section-header td { background: #1a56db; color: #fff; font-weigh
   <!-- 결과 -->
   <div class="result-section" id="resultSection" style="display:none; margin-top:20px;">
     <h2 id="resultTitle">예상 세액표</h2>
+    <div style="text-align:right; margin-bottom:10px;">
+      <button onclick="exportXlsx()" style="padding:8px 20px; background:#217346; color:#fff; border:none; border-radius:5px; cursor:pointer; font-size:0.9em; font-weight:bold;">엑셀 다운로드</button>
+    </div>
     <table class="result" id="resultTable"></table>
     <div class="info-box" id="infoBox"></div>
   </div>
 </div>
 
 <script>
+let lastCalcData = null;
+
 // 숫자 포맷
 function fmt(n) {
   if (n === null || n === undefined || isNaN(n)) return '-';
@@ -529,13 +535,19 @@ function calculate() {
       label: idx === 0 ? '기본' : '추가경비 ' + idx,
       addExp,
       revenue, grossProfit, opIncome, netIncome, taxableIncome,
-      computedTax, minTax, smeDeduction, rdCredit, empDeduction,
+      computedTax, minTax, smeDeduction, smeLimit, rdCredit, empDeduction,
       socialCredit, interimTax, corpTax, localTax, farmTax, totalTax, netMargin
     };
   });
 
   // 활성 시나리오 (추가경비가 0이 아닌 것 포함)
   const active = scenarios.filter((s, i) => i === 0 || s.addExp !== 0);
+
+  lastCalcData = {
+    companyName,
+    scenarios: active,
+    inputs: { artSales, constIncome, goodsSales, serviceSales, goodsCost, constCost, sga, nonOpIncome, nonOpExpense, taxAdj, smeRate, rdAmount, empCredit, socialCredit, interimTax }
+  };
 
   renderResult(companyName, active);
 }
@@ -600,6 +612,170 @@ function renderResult(companyName, scenarios) {
     '<strong>지방소득세:</strong> 산출세액 x 10% &nbsp;|&nbsp; <strong>농특세:</strong> 고용증대세액공제 x 20%';
 
   section.scrollIntoView({ behavior: 'smooth' });
+}
+
+// 엑셀 내보내기
+async function exportXlsx() {
+  if (!lastCalcData) { alert('먼저 세액을 계산해주세요.'); return; }
+  const { companyName, scenarios, inputs } = lastCalcData;
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('예상세액표');
+
+  const ns = scenarios.length;
+  const lastCol = 2 + ns;
+  const bigoCol = lastCol + 1;
+
+  ws.getColumn(1).width = 5;
+  ws.getColumn(2).width = 42;
+  for (let c = 3; c <= lastCol; c++) ws.getColumn(c).width = ns === 1 ? 25 : 20;
+  ws.getColumn(bigoCol).width = 50;
+
+  const nf = '#,##0;\\-#,##0;"-"';
+  const pf = '0.00%';
+  const bd = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+  const f14 = {name:'맑은 고딕',size:14};
+  const f14b = {name:'맑은 고딕',size:14,bold:true};
+  const f11 = {name:'맑은 고딕',size:11};
+  const f11b = {name:'맑은 고딕',size:11,bold:true};
+  const lfill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFF2F2F2'}};
+  const yfill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFF00'}};
+  const hfill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFD9E2F3'}};
+
+  // Row 5-6: Company name
+  ws.mergeCells(5,2,6,2);
+  const cc = ws.getCell(5,2);
+  cc.value = companyName;
+  cc.font = {name:'맑은 고딕',size:20,bold:true};
+  cc.alignment = {horizontal:'center',vertical:'middle'};
+  ws.getRow(5).height = 17; ws.getRow(6).height = 31;
+
+  // Row 8: Title
+  ws.getRow(8).height = 30;
+  ws.getCell(8,1).value = '▶';
+  ws.getCell(8,1).font = {name:'맑은 고딕',size:18,bold:true,color:{argb:'FF0099FF'}};
+  ws.getCell(8,1).alignment = {horizontal:'right',vertical:'middle'};
+  ws.getCell(8,2).value = new Date().getFullYear() + '년 예상 법인세';
+  ws.getCell(8,2).font = {name:'맑은 고딕',size:18,bold:true};
+  ws.getCell(8,2).alignment = {vertical:'middle'};
+
+  // Row 10-11: Headers
+  ws.getRow(10).height = 30; ws.getRow(11).height = 30;
+  ws.mergeCells(10,2,11,2);
+  const dv = ws.getCell(10,2);
+  dv.value = '구                분';
+  dv.font = f14b; dv.fill = hfill; dv.alignment = {horizontal:'center',vertical:'middle'}; dv.border = bd;
+
+  ws.mergeCells(10,3,10,bigoCol);
+  const ch = ws.getCell(10,3);
+  ch.value = companyName;
+  ch.font = f14b; ch.fill = hfill; ch.alignment = {horizontal:'center',vertical:'middle'}; ch.border = bd;
+
+  for (let i = 0; i < ns; i++) {
+    const c = ws.getCell(11,3+i);
+    c.value = scenarios[i].label === '기본' ? (new Date().getFullYear()-1)+'.12.31 기준' : scenarios[i].label;
+    c.font = f14b; c.fill = hfill; c.alignment = {horizontal:'center',vertical:'middle'}; c.border = bd;
+  }
+  const bh = ws.getCell(11,bigoCol);
+  bh.value = '비고'; bh.font = f14b; bh.fill = hfill; bh.alignment = {horizontal:'center',vertical:'middle'}; bh.border = bd;
+
+  // Data row writer
+  function wr(r, label, vals, o={}) {
+    const row = ws.getRow(r);
+    row.height = o.h || 33;
+    const lc = row.getCell(2);
+    lc.value = label;
+    lc.font = o.redAll ? {...f14b,color:{argb:'FFFF0000'}} : (o.b ? f14b : f14);
+    lc.alignment = {horizontal:'distributed',vertical:'middle'};
+    if (o.f) lc.fill = o.f;
+    lc.border = bd;
+    for (let i = 0; i < ns; i++) {
+      const cl = row.getCell(3+i);
+      cl.value = typeof vals[i] === 'number' ? Math.round(vals[i]) : vals[i];
+      cl.font = o.redAll ? {...f14b,color:{argb:'FFFF0000'}} : (o.b ? f14b : f14);
+      cl.numFmt = o.pct ? pf : nf;
+      cl.alignment = o.pct ? {horizontal:'center',vertical:'middle'} : {vertical:'middle'};
+      if (o.f) cl.fill = o.f;
+      cl.border = bd;
+    }
+    const bc = row.getCell(bigoCol);
+    if (o.bigo) { bc.value = o.bigo; }
+    bc.font = o.b ? f14b : f14;
+    bc.alignment = {horizontal:'center',vertical:'middle',wrapText:true};
+    if (o.f) bc.fill = o.f;
+    bc.border = bd;
+  }
+
+  function sv(field) { return scenarios.map(s => s[field]); }
+  const inp = inputs;
+
+  // 손익계산 rows (12-27)
+  wr(12, '미술품판매수입', scenarios.map(() => inp.artSales));
+  wr(13, '공사수입금', scenarios.map(() => inp.constIncome));
+  wr(14, '상품판매', scenarios.map(() => inp.goodsSales));
+  wr(15, '서비스매출', scenarios.map(() => inp.serviceSales));
+  wr(16, '매출액', sv('revenue'), {b:true, f:lfill});
+  wr(17, '상품매출원가', scenarios.map(() => inp.goodsCost));
+  wr(18, '공사매출원가', scenarios.map(() => inp.constCost));
+  wr(19, '매출총이익', sv('grossProfit'), {b:true, f:lfill});
+  wr(20, '판관비', scenarios.map(() => inp.sga));
+  wr(21, '추가경비', sv('addExp'), {b:true, redAll:true, f:lfill});
+  wr(22, '영업이익', sv('opIncome'), {b:true, f:lfill});
+  wr(23, '영업외수익', scenarios.map(() => inp.nonOpIncome));
+  wr(24, '영업외비용', scenarios.map(() => inp.nonOpExpense));
+  wr(25, '당기순이익', sv('netIncome'), {b:true, f:lfill});
+  wr(26, '손금&익금불산입', scenarios.map(() => inp.taxAdj), {b:true, f:lfill, h:40});
+  wr(27, '차가감소득금액', sv('taxableIncome'), {b:true, f:lfill});
+
+  // 세액 rows (28-39)
+  wr(28, '산출세액', sv('computedTax'), {b:true, f:lfill});
+  wr(29, '중소기업특별세액감면', sv('smeDeduction'), {bigo:'서비스업 '+Math.round(inp.smeRate*100)+'%'});
+  wr(30, '연구인력개발비세액공제', sv('rdCredit'), {bigo:'급여+4대보험료 반영'});
+  wr(31, '고용증대세액공제', sv('empDeduction'));
+  wr(32, '사회보험료세액공제', scenarios.map(() => inp.socialCredit));
+  wr(33, '중간예납세액', scenarios.map(() => inp.interimTax));
+  // Row 34: empty spacer
+  ws.getRow(34).height = 33;
+  wr(35, '법인세', sv('corpTax'), {b:true, f:lfill});
+  wr(36, '지방소득세', sv('localTax'), {b:true, f:lfill});
+  wr(37, '농특세', sv('farmTax'), {b:true, f:lfill});
+  // 농특세 label only red
+  ws.getCell(37,2).font = {...f14b, color:{argb:'FFFF0000'}};
+  wr(38, '총 납부할 세액', sv('totalTax'), {b:true, f:yfill});
+  wr(39, '당기순이익율', scenarios.map(s => s.netMargin), {pct:true});
+
+  // Auxiliary rows (41-46)
+  function wrAux(r, label, vals, bigo) {
+    const row = ws.getRow(r); row.height = 28;
+    const lc = row.getCell(2);
+    lc.value = label; lc.font = f11b; lc.fill = lfill; lc.alignment = {horizontal:'distributed',vertical:'middle'}; lc.border = bd;
+    for (let i = 0; i < ns; i++) {
+      const cl = row.getCell(3+i);
+      cl.value = typeof vals[i] === 'number' ? Math.round(vals[i]) : vals[i];
+      cl.font = f11; cl.fill = lfill; cl.numFmt = nf; cl.alignment = {vertical:'middle'}; cl.border = bd;
+    }
+    const bc = row.getCell(bigoCol);
+    if (bigo) bc.value = bigo;
+    bc.font = f11b; bc.fill = lfill; bc.alignment = {horizontal:'center',vertical:'middle'}; bc.border = bd;
+  }
+
+  wrAux(41, '고용증대공제가능액', scenarios.map(() => inp.empCredit));
+  wrAux(42, '최저한세', sv('minTax'), '법인세 결과와 금액이 같아야 함');
+  wrAux(43, '중소기업특별세액감면', sv('smeLimit'));
+  wrAux(44, '연구인력개발비 대상 금액', scenarios.map(() => inp.rdAmount));
+  wrAux(45, '연구인력개발비 세액공제', scenarios.map(() => inp.rdAmount * 0.25));
+  wrAux(46, '연구인력개발비 세액공제 잔액', scenarios.map(s => inp.rdAmount * 0.25 - s.rdCredit));
+
+  // Download
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = companyName + '_예상세액표.xlsx';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // 페이지 로드 시 입력값 포맷
