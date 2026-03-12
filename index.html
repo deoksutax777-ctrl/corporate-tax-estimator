@@ -80,6 +80,14 @@ table.result tr.section-header td { background: #1a56db; color: #fff; font-weigh
         <label>회사명</label>
         <input type="text" id="companyName" value="">
       </div>
+      <div class="form-group">
+        <label>귀속연도</label>
+        <input type="number" id="taxYear" value="" min="2020" max="2099" style="text-align:center;">
+      </div>
+      <div class="form-group">
+        <label>기준일자 / 문서날짜</label>
+        <input type="date" id="docDate" value="">
+      </div>
 
       <div class="form-group"><label>미술품판매수입</label><input type="text" id="artSales" value="0"></div>
       <div class="form-group"><label>공사수입금</label><input type="text" id="constIncome" value="0"></div>
@@ -632,12 +640,15 @@ async function exportXlsx() {
   const lastDataCol = Math.max(dataCol1 + ns - 1, 5); // 최소 E열(5)까지 확보
   const bigoCol = 6;                    // F열 = 비고 (항상 고정)
 
-  // 현재날짜
-  const now = new Date();
-  const yyyy = now.getFullYear();
+  // 귀속연도 & 문서날짜 (입력값 사용)
+  const taxYear = Number(document.getElementById('taxYear').value) || new Date().getFullYear();
+  const docDateVal = document.getElementById('docDate').value; // 'YYYY-MM-DD'
+  const docParts = docDateVal ? docDateVal.split('-') : [String(new Date().getFullYear()), String(new Date().getMonth()+1).padStart(2,'0'), String(new Date().getDate()).padStart(2,'0')];
+  const yyyy = Number(docParts[0]);
+  const mm = docParts[1];
+  const dd = docParts[2];
   const yy = String(yyyy).slice(2);
-  const mm = String(now.getMonth()+1).padStart(2,'0');
-  const dateStr = yy+'.'+mm+'.'+String(now.getDate()).padStart(2,'0');
+  const dateStr = yy+'.'+mm+'.'+dd;
 
   // === 컬럼 너비 ===
   ws.getColumn(1).width = 42;   // A: 구분
@@ -716,7 +727,7 @@ async function exportXlsx() {
   ws.getCell(5,1).value = '제    목'; ws.getCell(5,1).font = lblFont; ws.getCell(5,1).alignment = {horizontal:'center',vertical:'center'};
   ws.getCell(5,1).border = {bottom:{style:'medium',color:{argb:navyColor}}};
   ws.mergeCells(5,2,5,4);
-  ws.getCell(5,2).value = yyyy+'년 귀속 예상 법인세 안내의 건'; ws.getCell(5,2).font = {name:'맑은 고딕',size:16};
+  ws.getCell(5,2).value = taxYear+'년 귀속 예상 법인세 안내의 건'; ws.getCell(5,2).font = {name:'맑은 고딕',size:16};
   ws.getCell(5,2).alignment = {horizontal:'left',vertical:'center'};
   ws.getCell(5,2).border = {bottom:{style:'medium',color:{argb:navyColor}}};
   for (let c = 5; c <= bigoCol; c++) ws.getCell(5,c).border = {bottom:{style:'medium',color:{argb:navyColor}}};
@@ -892,8 +903,15 @@ async function exportXlsx() {
   URL.revokeObjectURL(url);
 }
 
-// 페이지 로드 시 입력값 포맷
+// 페이지 로드 시 기본값 설정
 window.addEventListener('DOMContentLoaded', () => {
+  // 귀속연도: 올해 기본값
+  const now = new Date();
+  document.getElementById('taxYear').value = now.getFullYear();
+  // 기준일자: 오늘 기본값
+  const pad2 = n => String(n).padStart(2,'0');
+  document.getElementById('docDate').value = now.getFullYear()+'-'+pad2(now.getMonth()+1)+'-'+pad2(now.getDate());
+
   document.querySelectorAll('.form-grid input[type=text], .scenario-grid input[type=text]').forEach(inp => {
     if (inp.id === 'companyName' || inp.id === 'smeRate') return;
     const v = Number(inp.value.replace(/,/g, ''));
