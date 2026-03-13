@@ -6,6 +6,7 @@
 <title>법인세 예상 세액표</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="industry_db.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #f5f5f5; color: #333; padding: 20px; }
@@ -52,6 +53,22 @@ table.result tr.section-header td { background: #333F4F; color: #fff; font-weigh
 .negative { color: #dc2626; }
 
 .info-box { background: #fffbeb; border: 1px solid #fbbf24; border-radius: 6px; padding: 10px 14px; margin-top: 12px; font-size: 0.85em; }
+
+/* 업종/감면 설정 */
+.industry-result { margin-top: 8px; padding: 8px 12px; border-radius: 4px; font-size: 0.9em; }
+.industry-result.found { background: #f0fdf4; border: 1px solid #86efac; }
+.industry-result.not-found { background: #fef2f2; border: 1px solid #fca5a5; }
+.radio-group { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+.radio-group label { font-size: 0.9em; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.condition-panel { display: none; margin-top: 8px; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
+.condition-panel.active { display: block; }
+.condition-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; }
+.condition-grid .form-group { display: flex; align-items: center; gap: 8px; }
+.condition-grid .form-group label { min-width: 120px; font-size: 0.88em; }
+.rate-display { margin-top: 10px; padding: 10px 14px; border-radius: 6px; font-size: 0.95em; font-weight: 700; }
+.rate-display.eligible { background: #dbeafe; border: 1px solid #93c5fd; color: #1e40af; }
+.rate-display.ineligible { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; }
+.rate-display.manual { background: #f5f3ff; border: 1px solid #c4b5fd; color: #5b21b6; }
 
 @media print {
   body { background: #fff; padding: 0; }
@@ -120,11 +137,82 @@ table.result tr.section-header td { background: #333F4F; color: #fff; font-weigh
     </div>
   </div>
 
+  <!-- 업종 및 감면 설정 -->
+  <div class="input-section">
+    <h2>업종 및 감면 설정</h2>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>업종코드</label>
+        <input type="text" id="industryCode" placeholder="예: 452001" style="text-align:left; max-width:150px;">
+        <span id="industryName" style="font-size:0.88em; color:#555;"></span>
+      </div>
+    </div>
+    <div id="industryResult" class="industry-result" style="display:none;"></div>
+
+    <h3 style="font-size:0.95em; margin:14px 0 6px; color:#555;">감면 종류</h3>
+    <div class="radio-group">
+      <label><input type="radio" name="reductionType" value="none"> 감면 없음 (수동입력)</label>
+      <label><input type="radio" name="reductionType" value="sme_special" checked> 중소기업 특별세액감면 (조특법 §7)</label>
+      <label><input type="radio" name="reductionType" value="startup"> 창업중소기업 세액감면 (조특법 §6)</label>
+    </div>
+
+    <!-- 감면 없음: 수동 입력 -->
+    <div id="panelNone" class="condition-panel">
+      <div class="condition-grid">
+        <div class="form-group"><label>감면 비율(%)</label><input type="text" id="manualRate" value="20" style="max-width:80px; text-align:center;"></div>
+      </div>
+    </div>
+
+    <!-- 중소기업 특별세액감면 조건 -->
+    <div id="panelSmeSpecial" class="condition-panel active">
+      <div class="condition-grid">
+        <div class="form-group">
+          <label>기업 규모</label>
+          <div class="radio-group">
+            <label><input type="radio" name="companySize" value="small" checked> 소기업</label>
+            <label><input type="radio" name="companySize" value="medium"> 중기업</label>
+          </div>
+          <span id="sizeAutoDetect" style="font-size:0.82em; color:#059669; font-weight:600;"></span>
+        </div>
+        <div class="form-group">
+          <label>지역</label>
+          <div class="radio-group">
+            <label><input type="radio" name="smeRegion" value="non_capital" checked> 비수도권</label>
+            <label><input type="radio" name="smeRegion" value="capital"> 수도권</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 창업중소기업 세액감면 조건 -->
+    <div id="panelStartup" class="condition-panel">
+      <div class="condition-grid">
+        <div class="form-group">
+          <label>지역 구분</label>
+          <div class="radio-group">
+            <label><input type="radio" name="startupRegion" value="non_capital" checked> 비수도권</label>
+            <label><input type="radio" name="startupRegion" value="capital_non_dense"> 수도권(과밀억제 외)</label>
+            <label><input type="radio" name="startupRegion" value="dense"> 과밀억제권역</label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>청년 창업 여부</label>
+          <div class="radio-group">
+            <label><input type="radio" name="isYouth" value="no" checked> 아니오</label>
+            <label><input type="radio" name="isYouth" value="yes"> 예 (만 34세 이하)</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="rateDisplay" class="rate-display eligible" style="display:none;"></div>
+  </div>
+
   <!-- 세액 조정 -->
   <div class="input-section">
     <h2>세액 조정 항목</h2>
     <div class="form-grid">
-      <div class="form-group"><label>중소기업감면 비율(%)</label><input type="text" id="smeRate" value="20"></div>
+      <div class="form-group"><label>상시근로자 감소 인원</label><input type="text" id="workerDecrease" value="0" style="max-width:80px; text-align:center;"></div>
       <div class="form-group"><label>연구인력개발비 대상</label><input type="text" id="rdAmount" value="0"></div>
       <div class="form-group"><label>고용증대공제 가능액</label><input type="text" id="empCredit" value="0"></div>
       <div class="form-group"><label>사회보험료 세액공제</label><input type="text" id="socialCredit" value="0"></div>
@@ -158,6 +246,366 @@ table.result tr.section-header td { background: #333F4F; color: #fff; font-weigh
 
 <script>
 let lastCalcData = null;
+
+/* ═══════ 감면 대상 판정 로직 ═══════ */
+
+// 창업중소기업 세액감면 (조특법 §6) 대상 판정
+function isStartupEligible(d) {
+  if (!d) return { eligible: false, reason: '업종코드를 찾을 수 없습니다.' };
+  const { cd, mc, sc, sn, name } = d;
+
+  // B: 광업
+  if (cd === 'B') return { eligible: true, category: '광업' };
+  // C: 제조업
+  if (cd === 'C') return { eligible: true, category: '제조업' };
+  // E: 수도, 하수 및 폐기물 처리, 원료 재생업
+  if (cd === 'E') return { eligible: true, category: '수도·하수·폐기물처리' };
+  // F: 건설업
+  if (cd === 'F') return { eligible: true, category: '건설업' };
+
+  // G: 통신판매업 (소분류 479)
+  if (cd === 'G' && sc === 479) return { eligible: true, category: '통신판매업' };
+
+  // H: 운수 및 창고업 (물류산업)
+  if (cd === 'H') return { eligible: true, category: '물류산업' };
+
+  // I: 숙박 및 음식점업 - 음식점업만 (중분류 56)
+  if (cd === 'I' && mc === 56) return { eligible: true, category: '음식점업' };
+  // 관광숙박업 (소분류 551)
+  if (cd === 'I' && sc === 551) return { eligible: true, category: '관광숙박업' };
+
+  // J: 정보통신업 (비디오물감상실, 뉴스제공업 제외)
+  if (cd === 'J') {
+    const nm = (sn + name).replace(/\s/g, '');
+    if (nm.includes('비디오물감상') || nm.includes('뉴스제공')) return { eligible: false, reason: '정보통신업 중 제외 업종' };
+    return { eligible: true, category: '정보통신업' };
+  }
+
+  // K: 금융 및 보험업 중 핀테크
+  if (cd === 'K') {
+    const nm = (sn + name).replace(/\s/g, '');
+    if (nm.includes('정보통신') || nm.includes('핀테크') || nm.includes('전자금융') || nm.includes('온라인'))
+      return { eligible: true, category: '금융(핀테크)' };
+    return { eligible: false, reason: '금융업 중 IT 기반 금융서비스만 해당' };
+  }
+
+  // M: 전문, 과학 및 기술 서비스업 (제외 직종 확인)
+  if (cd === 'M') {
+    const nm = (sn + name).replace(/\s/g, '');
+    const excluded = ['변호사','변리사','법무사','공인회계사','세무사','관세사',
+      '경영지도사','기술지도사','감정평가사','손해사정','통관업','기술사','건축사','도선사','측량사'];
+    for (const ex of excluded) {
+      if (nm.includes(ex)) return { eligible: false, reason: '전문서비스업 중 제외 직종 (' + ex + ')' };
+    }
+    return { eligible: true, category: '전문·과학·기술 서비스업' };
+  }
+
+  // N: 사업시설관리, 사업지원 서비스업
+  if (cd === 'N') return { eligible: true, category: '사업시설관리·사업지원' };
+
+  // P: 교육서비스업 중 직업기술분야 학원
+  if (cd === 'P') {
+    const nm = (sn + name).replace(/\s/g, '');
+    if (nm.includes('직업') || nm.includes('기술학원') || nm.includes('훈련'))
+      return { eligible: true, category: '직업기술 학원·훈련시설' };
+    return { eligible: false, reason: '교육서비스업 중 직업기술분야만 해당' };
+  }
+
+  // Q: 보건업 및 사회복지 서비스업 - 사회복지(mc=87), 노인복지시설
+  if (cd === 'Q') {
+    if (mc === 87) return { eligible: true, category: '사회복지 서비스업' };
+    const nm = (sn + name).replace(/\s/g, '');
+    if (nm.includes('노인복지')) return { eligible: true, category: '노인복지시설 운영업' };
+    return { eligible: false, reason: '보건업 중 사회복지/노인복지만 해당' };
+  }
+
+  // R: 예술, 스포츠 및 여가관련 서비스업
+  if (cd === 'R') {
+    const nm = (sn + name).replace(/\s/g, '');
+    if (nm.includes('오락장') || nm.includes('사행') || nm.includes('도박'))
+      return { eligible: false, reason: '예술·스포츠업 중 오락장 운영 제외' };
+    return { eligible: true, category: '예술·스포츠·여가 서비스업' };
+  }
+
+  // S: 수리업, 이미용업
+  if (cd === 'S') {
+    const nm = (sn + name).replace(/\s/g, '');
+    if (nm.includes('수리') || nm.includes('이용') || nm.includes('미용'))
+      return { eligible: true, category: '수리업·이미용업' };
+    return { eligible: false, reason: '기타 개인 서비스업 중 수리/이미용만 해당' };
+  }
+
+  return { eligible: false, reason: '창업중소기업 감면 대상 업종이 아닙니다.' };
+}
+
+// 중소기업 특별세액감면 (조특법 §7) 대상 판정
+function isSmeSpecialEligible(d) {
+  if (!d) return { eligible: false, isRetailMedical: false, reason: '업종코드를 찾을 수 없습니다.' };
+  const { cd, mc, sc, sn, name } = d;
+  const nm = (sn + name).replace(/\s/g, '');
+
+  // A: 농업, 임업 및 어업
+  if (cd === 'A') return { eligible: true, isRetailMedical: false, category: '농업·임업·어업' };
+  // B: 광업
+  if (cd === 'B') return { eligible: true, isRetailMedical: false, category: '광업' };
+  // C: 제조업
+  if (cd === 'C') return { eligible: true, isRetailMedical: false, category: '제조업' };
+  // E: 수도, 하수 및 폐기물
+  if (cd === 'E') return { eligible: true, isRetailMedical: false, category: '수도·하수·폐기물' };
+  // F: 건설업
+  if (cd === 'F') return { eligible: true, isRetailMedical: false, category: '건설업' };
+
+  // G: 도매 및 소매업 → 도소매업은 낮은 감면율 적용
+  if (cd === 'G') return { eligible: true, isRetailMedical: true, category: '도매·소매업' };
+
+  // H: 운수 및 창고업 (여객운송)
+  if (cd === 'H') return { eligible: true, isRetailMedical: false, category: '운수·창고업' };
+
+  // I: 숙박 및 음식점업
+  if (cd === 'I') return { eligible: true, isRetailMedical: false, category: '숙박·음식점업' };
+
+  // J: 정보통신업 (출판, 영상, 방송, 통신, 컴퓨터 프로그래밍)
+  if (cd === 'J') return { eligible: true, isRetailMedical: false, category: '정보통신업' };
+
+  // M: 전문, 과학 및 기술 서비스업 (연구개발, 광고, 전문디자인 등)
+  if (cd === 'M') {
+    if (nm.includes('연구') || nm.includes('광고') || nm.includes('디자인') || nm.includes('엔지니어링') || nm.includes('기술'))
+      return { eligible: true, isRetailMedical: false, category: '전문·과학·기술서비스' };
+    return { eligible: true, isRetailMedical: false, category: '전문서비스업' };
+  }
+
+  // N: 사업시설관리, 사업지원 서비스업 (인력공급, 콜센터 등)
+  if (cd === 'N') return { eligible: true, isRetailMedical: false, category: '사업시설관리·지원' };
+
+  // P: 교육서비스업 (직업기술분야 학원)
+  if (cd === 'P') {
+    if (nm.includes('직업') || nm.includes('기술학원') || nm.includes('훈련'))
+      return { eligible: true, isRetailMedical: false, category: '직업기술 학원' };
+    return { eligible: false, isRetailMedical: false, reason: '교육업 중 직업기술분야만 해당' };
+  }
+
+  // Q: 보건업 및 사회복지 서비스업 → 의료업은 낮은 감면율
+  if (cd === 'Q') {
+    if (mc === 86) return { eligible: true, isRetailMedical: true, category: '보건(의료)업' };
+    if (mc === 87) return { eligible: true, isRetailMedical: false, category: '사회복지 서비스업' };
+    return { eligible: true, isRetailMedical: true, category: '보건업' };
+  }
+
+  // R: 예술, 스포츠 및 여가관련 서비스업 (창작, 예술)
+  if (cd === 'R') {
+    if (nm.includes('창작') || nm.includes('예술') || nm.includes('공연'))
+      return { eligible: true, isRetailMedical: false, category: '창작·예술 서비스업' };
+    return { eligible: true, isRetailMedical: false, category: '스포츠·여가 서비스업' };
+  }
+
+  // S: 수리업
+  if (cd === 'S') {
+    if (nm.includes('수리')) return { eligible: true, isRetailMedical: false, category: '수리업' };
+  }
+
+  // L: 부동산업
+  if (cd === 'L') return { eligible: false, isRetailMedical: false, reason: '부동산업은 감면 대상이 아닙니다.' };
+
+  return { eligible: false, isRetailMedical: false, reason: '중소기업 특별세액감면 대상 업종이 아닙니다.' };
+}
+
+// 창업중소기업 감면율 산출
+function getStartupRate(region, isYouth, taxYear) {
+  if (taxYear <= 2025) {
+    if (isYouth) {
+      if (region === 'non_capital') return 1.0;
+      if (region === 'capital_non_dense') return 0.75;
+      if (region === 'dense') return 0.50;
+    } else {
+      if (region === 'non_capital') return 0.50;
+      if (region === 'capital_non_dense') return 0.50;
+      if (region === 'dense') return 0;
+    }
+  } else {
+    // 2026년 이후
+    if (isYouth) {
+      if (region === 'non_capital') return 1.0;
+      if (region === 'capital_non_dense') return 0.75;
+      if (region === 'dense') return 0.50;
+    } else {
+      if (region === 'non_capital') return 0.50;
+      if (region === 'capital_non_dense') return 0.25;
+      if (region === 'dense') return 0;
+    }
+  }
+  return 0;
+}
+
+// 소기업 매출액 기준 (중소기업기본법 시행령 별표3)
+// 대분류코드 → 소기업 매출액 상한 (원)
+function getSmallBizThreshold(cd) {
+  // 제조업: 120억
+  if (cd === 'C') return 12000000000;
+  // 광업, 건설업, 운수·창고업: 80억
+  if (cd === 'B' || cd === 'F' || cd === 'H') return 8000000000;
+  // 농업·임업·어업: 80억
+  if (cd === 'A') return 8000000000;
+  // 전기·가스: 80억
+  if (cd === 'D') return 8000000000;
+  // 수도·하수·폐기물: 80억
+  if (cd === 'E') return 8000000000;
+  // 도매·소매업: 50억
+  if (cd === 'G') return 5000000000;
+  // 그 외 (숙박·음식점, 정보통신, 전문서비스, 부동산, 보건, 교육 등): 50억
+  return 5000000000;
+}
+
+// 매출액 기준 소기업/중기업 자동 판정
+function autoDetectCompanySize(cd, revenue) {
+  if (!cd || !revenue) return null;
+  const threshold = getSmallBizThreshold(cd);
+  const isSmall = revenue <= threshold;
+  return {
+    isSmall,
+    threshold,
+    label: isSmall ? '소기업' : '중기업',
+    thresholdLabel: (threshold / 100000000).toFixed(0) + '억원'
+  };
+}
+
+// 중소기업 특별세액감면율 산출
+function getSmeSpecialRate(companySize, region, isRetailMedical) {
+  if (companySize === 'small') {
+    if (isRetailMedical) return region === 'non_capital' ? 0.15 : 0.10;
+    return region === 'non_capital' ? 0.30 : 0.20;
+  } else {
+    // 중기업
+    if (region === 'capital') return 0; // 수도권 중기업 감면 없음
+    if (isRetailMedical) return 0.05;
+    return 0.15;
+  }
+}
+
+// 현재 감면 정보 산출 (UI 표시용 + 계산용)
+function getReductionInfo() {
+  const type = document.querySelector('input[name="reductionType"]:checked')?.value || 'none';
+  const code = document.getElementById('industryCode').value.trim();
+  const industry = code ? getIndustry(code) : null;
+  const taxYear = Number(document.getElementById('taxYear').value) || new Date().getFullYear();
+
+  if (type === 'none') {
+    const manualRate = Number(String(document.getElementById('manualRate').value).replace(/,/g, '')) / 100 || 0;
+    return { type: 'none', rate: manualRate, label: '수동 ' + Math.round(manualRate * 100) + '%', eligible: true, hasCap: false };
+  }
+
+  if (type === 'sme_special') {
+    const elig = isSmeSpecialEligible(industry);
+    if (!elig.eligible) return { type, rate: 0, label: '감면 대상 아님', eligible: false, reason: elig.reason, hasCap: true };
+    const size = document.querySelector('input[name="companySize"]:checked')?.value || 'small';
+    const region = document.querySelector('input[name="smeRegion"]:checked')?.value || 'non_capital';
+    const rate = getSmeSpecialRate(size, region, elig.isRetailMedical);
+    if (rate === 0) return { type, rate: 0, label: '수도권 중기업 감면 없음', eligible: false, reason: '수도권 소재 중기업은 감면 대상이 아닙니다.', hasCap: true };
+    const sizeLabel = size === 'small' ? '소기업' : '중기업';
+    const regionLabel = region === 'capital' ? '수도권' : '비수도권';
+    const categoryNote = elig.isRetailMedical ? ' (도소매·의료)' : '';
+    return { type, rate, label: sizeLabel + ' ' + regionLabel + categoryNote + ' ' + Math.round(rate * 100) + '%', eligible: true, category: elig.category, hasCap: true };
+  }
+
+  if (type === 'startup') {
+    const elig = isStartupEligible(industry);
+    if (!elig.eligible) return { type, rate: 0, label: '감면 대상 아님', eligible: false, reason: elig.reason, hasCap: false };
+    const region = document.querySelector('input[name="startupRegion"]:checked')?.value || 'non_capital';
+    const isYouth = document.querySelector('input[name="isYouth"]:checked')?.value === 'yes';
+    const rate = getStartupRate(region, isYouth, taxYear);
+    if (rate === 0) return { type, rate: 0, label: '과밀억제권역 일반창업 감면 불가', eligible: false, reason: '과밀억제권역 내 일반(비청년) 창업은 감면 대상이 아닙니다.', hasCap: false };
+    const regionLabels = { non_capital: '비수도권', capital_non_dense: '수도권(비과밀)', dense: '과밀억제' };
+    const youthLabel = isYouth ? '청년' : '일반';
+    return { type, rate, label: regionLabels[region] + ' ' + youthLabel + ' ' + Math.round(rate * 100) + '%', eligible: true, category: elig.category, hasCap: false };
+  }
+
+  return { type: 'none', rate: 0, label: '', eligible: false, hasCap: false };
+}
+
+// 매출액 기준 소기업/중기업 자동 판정 + UI 반영
+function updateSizeAutoDetect() {
+  const sizeEl = document.getElementById('sizeAutoDetect');
+  const code = document.getElementById('industryCode').value.trim();
+  const d = code ? getIndustry(code) : null;
+
+  if (!d) { sizeEl.textContent = ''; return; }
+
+  // 매출액 합산 (입력 필드에서 가져오기)
+  const revenue = pv('artSales') + pv('constIncome') + pv('goodsSales') + pv('serviceSales');
+  if (!revenue) { sizeEl.textContent = ''; return; }
+
+  const result = autoDetectCompanySize(d.cd, revenue);
+  if (!result) { sizeEl.textContent = ''; return; }
+
+  // 자동 판정 결과 표시
+  sizeEl.style.color = result.isSmall ? '#059669' : '#d97706';
+  sizeEl.textContent = '← 매출 ' + (revenue / 100000000).toFixed(1) + '억 → ' + result.label + ' (기준: ' + result.thresholdLabel + ' 이하)';
+
+  // 라디오 버튼 자동 선택
+  const targetValue = result.isSmall ? 'small' : 'medium';
+  const radio = document.querySelector('input[name="companySize"][value="' + targetValue + '"]');
+  if (radio) radio.checked = true;
+}
+
+// UI 업데이트: 감면율 표시
+function updateReductionDisplay() {
+  updateSizeAutoDetect();
+  const info = getReductionInfo();
+  const rateEl = document.getElementById('rateDisplay');
+
+  if (info.type === 'none') {
+    rateEl.style.display = 'block';
+    rateEl.className = 'rate-display manual';
+    rateEl.textContent = '수동 입력 감면율: ' + Math.round(info.rate * 100) + '%';
+    return;
+  }
+
+  rateEl.style.display = 'block';
+  if (!info.eligible) {
+    rateEl.className = 'rate-display ineligible';
+    rateEl.textContent = (info.reason || '감면 대상이 아닙니다.');
+  } else {
+    rateEl.className = 'rate-display eligible';
+    const typeName = info.type === 'startup' ? '창업중소기업 세액감면' : '중소기업 특별세액감면';
+    rateEl.textContent = typeName + ': ' + info.label + (info.category ? ' (' + info.category + ')' : '');
+  }
+}
+
+// 업종코드 입력 시 업종명 표시
+function onIndustryCodeInput() {
+  const code = document.getElementById('industryCode').value.trim();
+  const nameEl = document.getElementById('industryName');
+  const resultEl = document.getElementById('industryResult');
+
+  if (!code) {
+    nameEl.textContent = '';
+    resultEl.style.display = 'none';
+    updateReductionDisplay();
+    return;
+  }
+
+  const d = getIndustry(code);
+  if (d) {
+    nameEl.textContent = d.name;
+    resultEl.style.display = 'block';
+    resultEl.className = 'industry-result found';
+    resultEl.innerHTML = '<strong>' + d.name + '</strong><br><span style="color:#666;font-size:0.85em;">' + d.cn + ' > ' + d.mn + ' > ' + d.sn + '</span>';
+  } else {
+    nameEl.textContent = '';
+    resultEl.style.display = 'block';
+    resultEl.className = 'industry-result not-found';
+    resultEl.textContent = '해당 업종코드를 찾을 수 없습니다.';
+  }
+  updateReductionDisplay();
+}
+
+// 감면 종류 변경 시 패널 토글
+function onReductionTypeChange() {
+  const type = document.querySelector('input[name="reductionType"]:checked')?.value || 'none';
+  document.getElementById('panelNone').className = 'condition-panel' + (type === 'none' ? ' active' : '');
+  document.getElementById('panelSmeSpecial').className = 'condition-panel' + (type === 'sme_special' ? ' active' : '');
+  document.getElementById('panelStartup').className = 'condition-panel' + (type === 'startup' ? ' active' : '');
+  updateReductionDisplay();
+}
 
 // 숫자 포맷
 function fmt(n) {
@@ -505,12 +953,14 @@ function calculate() {
   const taxAdjMinus = pv('taxAdjMinus'); // 손금산입·익금불산입 (-)
   const taxAdj = taxAdjPlus - taxAdjMinus;
 
-  // 세액 조정
-  const smeRate = pv('smeRate') / 100;
+  // 세액 조정 — 감면 정보 자동 산출
+  const reductionInfo = getReductionInfo();
+  const smeRate = reductionInfo.rate;
   const rdAmount = pv('rdAmount');
   const empCredit = pv('empCredit');
   const socialCredit = pv('socialCredit');
   const interimTax = pv('interimTax');
+  const workerDecrease = pv('workerDecrease');
 
   // 추가경비
   const addExps = [0, pv('addExp1'), pv('addExp2'), pv('addExp3')];
@@ -535,8 +985,13 @@ function calculate() {
     // 최저한세
     const minTax = netIncome * 0.07;
 
-    // 중소기업특별세액감면
-    const smeLimit = computedTax * smeRate;
+    // 세액감면 (중소기업특별 또는 창업중소기업)
+    let smeLimit = computedTax * smeRate;
+    // 중소기업 특별세액감면은 감면한도 1억원 (상시근로자 감소 시 1인당 500만원 차감)
+    if (reductionInfo.hasCap && smeRate > 0) {
+      const cap = Math.max(0, 100000000 - workerDecrease * 5000000);
+      smeLimit = Math.min(smeLimit, cap);
+    }
     const smeDeduction = Math.max(0, Math.min(smeLimit, computedTax - minTax));
 
     // 연구인력개발비세액공제
@@ -552,8 +1007,10 @@ function calculate() {
     // 지방소득세
     const localTax = computedTax * 0.1;
 
-    // 농특세
-    const farmTax = empDeduction * 0.2;
+    // 농특세: 창업중소기업감면은 면제, 중소기업특별은 감면세액 × 20%
+    let farmTax = empDeduction * 0.2;
+    if (reductionInfo.type === 'sme_special') farmTax += smeDeduction * 0.2;
+    // 창업중소기업 감면은 농특세 면제
 
     // 총 납부세액
     const totalTax = corpTax + localTax + farmTax;
@@ -567,7 +1024,8 @@ function calculate() {
       taxAdjPlus, taxAdjMinus,
       revenue, grossProfit, opIncome, netIncome, taxableIncome,
       computedTax, minTax, smeDeduction, smeLimit, rdCredit, empDeduction,
-      socialCredit, interimTax, corpTax, localTax, farmTax, totalTax, netMargin
+      socialCredit, interimTax, corpTax, localTax, farmTax, totalTax, netMargin,
+      reductionInfo
     };
   });
 
@@ -577,7 +1035,8 @@ function calculate() {
   lastCalcData = {
     companyName,
     scenarios: active,
-    inputs: { artSales, constIncome, goodsSales, serviceSales, goodsCost, constCost, sga, nonOpIncome, nonOpExpense, taxAdjPlus, taxAdjMinus, taxAdj, smeRate, rdAmount, empCredit, socialCredit, interimTax }
+    inputs: { artSales, constIncome, goodsSales, serviceSales, goodsCost, constCost, sga, nonOpIncome, nonOpExpense, taxAdjPlus, taxAdjMinus, taxAdj, smeRate, rdAmount, empCredit, socialCredit, interimTax, workerDecrease },
+    reductionInfo
   };
 
   renderResult(companyName, active);
@@ -616,7 +1075,13 @@ function renderResult(companyName, scenarios) {
   // 세액 섹션
   html += '<tr class="section-header"><td colspan="' + (colCount + 1) + '">세액 계산</td></tr>';
   html += row('산출세액', 'computedTax', 'row-blue');
-  html += row('(-) 중소기업특별세액감면', 'smeDeduction');
+  // 감면 행 라벨 동적 표시
+  const ri = scenarios[0].reductionInfo;
+  let smeLabel = '(-) 중소기업특별세액감면';
+  if (ri.type === 'startup') smeLabel = '(-) 창업중소기업세액감면';
+  else if (ri.type === 'none') smeLabel = '(-) 세액감면';
+  if (ri.eligible && ri.label) smeLabel += ' (' + ri.label + ')';
+  html += row(smeLabel, 'smeDeduction');
   html += row('(-) 연구인력개발비세액공제', 'rdCredit');
   html += row('(-) 고용증대세액공제', 'empDeduction');
   html += row('(-) 사회보험료세액공제', 'socialCredit');
@@ -858,7 +1323,14 @@ async function exportXlsx() {
   // Row 26: 산출세액 (blue, top medium)
   wr(26, '산출세액', sv('computedTax'), {b:true, f:blueFill, bt:'medium'});
   // Row 27-31: 공제/감면 항목
-  wr(27, '중소기업특별세액감면',   sv('smeDeduction'),                      {bt:'medium',bb:'hair', bigo:'서비스업 '+Math.round(inp.smeRate*100)+'%'});
+  // 감면 라벨 및 비고
+  const xlRi = lastCalcData.reductionInfo;
+  let xlSmeLabel = '중소기업특별세액감면';
+  let xlSmeBigo = Math.round(inp.smeRate * 100) + '%';
+  if (xlRi.type === 'startup') { xlSmeLabel = '창업중소기업세액감면'; xlSmeBigo = xlRi.label || ''; }
+  else if (xlRi.type === 'sme_special') { xlSmeBigo = xlRi.label || (Math.round(inp.smeRate * 100) + '%'); }
+  else if (xlRi.type === 'none') { xlSmeBigo = '수동 ' + Math.round(inp.smeRate * 100) + '%'; }
+  wr(27, xlSmeLabel,   sv('smeDeduction'),                      {bt:'medium',bb:'hair', bigo: xlSmeBigo});
   wr(28, '연구인력개발비세액공제',  sv('rdCredit'),                          {bt:'hair',bb:'hair', bigo:'급여+4대보험료 반영'});
   wr(29, '고용증대세액공제',       sv('empDeduction'),                       {bt:'hair',bb:'hair'});
   wr(30, '사회보험료세액공제',     scenarios.map(()=>inp.socialCredit),       {bt:'hair',bb:'hair'});
@@ -904,7 +1376,7 @@ async function exportXlsx() {
   }
   wrAux(38, '고용증대공제가능액',          scenarios.map(()=>inp.empCredit),                    {hdr:true, bt:'thin',bb:'thin'});
   wrAux(39, '최저한세',                   sv('minTax'),                                        {hdr:true, bb:'thin', bigo:'법인세 결과와 금액이 같아야 함'});
-  wrAux(40, '중소기업특별세액감면',         sv('smeLimit'),                                      {bt:'thin',bb:'thin'});
+  wrAux(40, xlSmeLabel + '(감면한도)',      sv('smeLimit'),                                      {bt:'thin',bb:'thin'});
   wrAux(41, '연구인력개발비 대상 금액',     scenarios.map(()=>inp.rdAmount),                      {bt:'thin'});
   wrAux(42, '연구인력개발비 세액공제',      scenarios.map(()=>inp.rdAmount*0.25),                  {bt:'medium',bb:'thin'});
   wrAux(43, '연구인력개발비 세액공제 잔액',  scenarios.map(s=>inp.rdAmount*0.25 - s.rdCredit),     {});
@@ -931,8 +1403,20 @@ window.addEventListener('DOMContentLoaded', () => {
   const pad2 = n => String(n).padStart(2,'0');
   document.getElementById('docDate').value = now.getFullYear()+'-'+pad2(now.getMonth()+1)+'-'+pad2(now.getDate());
 
+  // 업종/감면 이벤트 리스너
+  document.getElementById('industryCode').addEventListener('input', onIndustryCodeInput);
+  document.querySelectorAll('input[name="reductionType"]').forEach(r => r.addEventListener('change', onReductionTypeChange));
+  document.querySelectorAll('input[name="companySize"], input[name="smeRegion"], input[name="startupRegion"], input[name="isYouth"]').forEach(r => r.addEventListener('change', updateReductionDisplay));
+  document.getElementById('manualRate')?.addEventListener('input', updateReductionDisplay);
+  // 매출액 입력 변경 시 소기업/중기업 자동 판정 갱신
+  ['artSales','constIncome','goodsSales','serviceSales'].forEach(id => {
+    document.getElementById(id)?.addEventListener('blur', updateReductionDisplay);
+  });
+  // 초기 표시
+  onReductionTypeChange();
+
   document.querySelectorAll('.form-grid input[type=text], .scenario-grid input[type=text]').forEach(inp => {
-    if (inp.id === 'companyName' || inp.id === 'smeRate') return;
+    if (inp.id === 'companyName' || inp.id === 'manualRate' || inp.id === 'industryCode' || inp.id === 'workerDecrease') return;
     const v = Number(inp.value.replace(/,/g, ''));
     if (!isNaN(v) && v !== 0) {
       inp.value = v.toLocaleString('ko-KR');
