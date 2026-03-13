@@ -53,8 +53,9 @@ table.result tr.section-header td { background: #333F4F; color: #fff; font-weigh
 
 .info-box { background: #fffbeb; border: 1px solid #fbbf24; border-radius: 6px; padding: 10px 14px; margin-top: 12px; font-size: 0.85em; }
 
+@page { size: A4; margin: 10mm; }
 @media print {
-  body { background: #fff; padding: 0; }
+  body { background: #fff; padding: 0; transform: scale(0.9); transform-origin: top left; width: 111.11%; }
   .input-section, .upload-area, .btn-calc { display: none; }
   .result-section { box-shadow: none; padding: 0; }
   table.result { font-size: 0.8em; }
