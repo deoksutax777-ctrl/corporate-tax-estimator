@@ -58,6 +58,16 @@ table.result tr.section-header td { background: #333F4F; color: #fff; font-weigh
   .input-section, .upload-area, .btn-calc { display: none; }
   .result-section { box-shadow: none; padding: 0; }
   table.result { font-size: 0.8em; }
+  table.result th, table.result td,
+  table.result tr.row-blue td,
+  table.result tr.row-orange td,
+  table.result tr.row-yellow td,
+  table.result tr.row-green td,
+  table.result tr.row-bright td,
+  table.result tr.section-header td {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }
 </style>
 </head>
