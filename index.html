@@ -175,6 +175,15 @@ table.result tr.section-header td { background: #333F4F; color: #fff; font-weigh
     </div>
     <div id="industryResult" class="industry-result" style="display:none;"></div>
     <div id="sizeAutoDetect" style="margin-top:6px;"></div>
+    <div style="margin-top:10px;">
+      <label style="font-size:0.9em; font-weight:500;">지역 구분</label>
+      <div class="radio-group" style="display:inline-flex; gap:14px; margin-left:10px; font-size:0.9em;">
+        <label><input type="radio" name="regionType" value="non_capital" checked> 비수도권</label>
+        <label><input type="radio" name="regionType" value="capital_non_dense"> 수도권 (과밀억제 외)</label>
+        <label><input type="radio" name="regionType" value="dense"> 과밀억제권역</label>
+      </div>
+    </div>
+    <div id="reductionSummary" style="margin-top:8px; font-size:0.85em; color:#1a56db; font-weight:600;"></div>
   </div>
 
   <!-- 세액 조정 -->
@@ -297,18 +306,27 @@ function addPresetCredit() {
 
   if (val === 'startupSme') {
     div.innerHTML = `
-      <span class="credit-name">창업중소기업세액감면 <span class="startup-badge">기본 틀</span></span>
+      <span class="credit-name">창업중소기업세액감면</span>
       <div class="startup-sub-fields">
+        <label>청년창업</label>
+        <span style="display:inline-flex; gap:8px; font-size:0.85em;">
+          <label><input type="radio" name="isYouth" value="no" checked onchange="autoSetStartupRate()"> 아니오</label>
+          <label><input type="radio" name="isYouth" value="yes" onchange="autoSetStartupRate()"> 예</label>
+        </span>
         <label>감면비율</label>
         <select id="startupSmeRate">
           <option value="100">100%</option>
+          <option value="75">75%</option>
           <option value="50" selected>50%</option>
         </select>
         <label>감면대상소득</label>
         <input type="text" id="startupSmeIncome" value="0">
       </div>
+      <div id="startupWarning" style="display:none; color:#dc2626; font-size:0.82em; font-weight:600; margin-top:4px;"></div>
       <button class="btn-remove-credit" onclick="removeCredit('startupSme')">삭제</button>
     `;
+    // 추가 직후 자동 감면율 설정
+    setTimeout(() => autoSetStartupRate(), 0);
   } else if (val === 'sme') {
     div.innerHTML = `
       <span class="credit-name">중소기업특별세액감면</span>
@@ -432,29 +450,132 @@ function updateSizeAutoDetect() {
   autoSetSmeRate(d);
 }
 
-// 중소기업특별세액감면 감면비율 자동 설정
+// 지역 라디오 값 읽기
+function getRegion() {
+  const el = document.querySelector('input[name="regionType"]:checked');
+  return el ? el.value : 'non_capital';
+}
+
+// 중소기업특별세액감면 감면비율 자동 설정 (지역 반영)
 function autoSetSmeRate(d) {
   if (!d) return;
   const smeRateEl = document.getElementById('smeRate');
-  if (!smeRateEl) return; // 감면 항목이 없으면 skip
+  if (!smeRateEl) return;
 
   const revenue = pv('totalRevenue');
   const threshold = getSmallBizThreshold(d.cd);
-  const isSmall = revenue > 0 ? revenue <= threshold : true; // 매출 미입력 시 소기업 기본
-
-  // 도소매업/의료업 여부
+  const isSmall = revenue > 0 ? revenue <= threshold : true;
+  const region = getRegion();
+  const isCapital = (region === 'capital_non_dense' || region === 'dense');
   const isRetailMedical = (d.cd === 'G' || d.cd === 'Q');
 
   // 감면율 결정 (조특법 §7)
   let rate;
   if (isSmall) {
-    rate = isRetailMedical ? 15 : 30; // 소기업: 도소매·의료 15%, 기타 30%
+    if (isCapital) {
+      rate = isRetailMedical ? 10 : 20;  // 소기업 수도권
+    } else {
+      rate = isRetailMedical ? 15 : 30;  // 소기업 비수도권
+    }
   } else {
-    rate = isRetailMedical ? 5 : 15;  // 중기업: 도소매·의료 5%, 기타 15%
+    if (isCapital) {
+      rate = 0;                           // 중기업 수도권: 감면 없음
+    } else {
+      rate = isRetailMedical ? 5 : 15;   // 중기업 비수도권
+    }
   }
-  // 수도권은 비수도권 대비 감면율 차이 (수동 조정 가능하도록 안내만)
 
   smeRateEl.value = rate;
+  updateReductionSummary();
+}
+
+// 창업중소기업세액감면 감면비율 자동 설정 (지역 + 청년 반영)
+function autoSetStartupRate() {
+  const startupRateEl = document.getElementById('startupSmeRate');
+  if (!startupRateEl) return;
+
+  const region = getRegion();
+  const youthEl = document.querySelector('input[name="isYouth"]:checked');
+  const isYouth = youthEl ? youthEl.value === 'yes' : false;
+
+  let rate;
+  let warning = '';
+
+  if (isYouth) {
+    if (region === 'dense') rate = 50;
+    else rate = 100; // 비수도권 & 수도권(과밀억제 외) 모두 100%
+  } else {
+    if (region === 'non_capital') rate = 75;
+    else if (region === 'capital_non_dense') rate = 50;
+    else { rate = 0; warning = '⚠️ 과밀억제권역 일반창업은 감면 대상이 아닙니다.'; }
+  }
+
+  // select에 해당 값이 없으면 option 추가
+  let found = false;
+  for (const opt of startupRateEl.options) {
+    if (Number(opt.value) === rate) { found = true; break; }
+  }
+  if (!found && rate > 0) {
+    const opt = document.createElement('option');
+    opt.value = rate;
+    opt.text = rate + '%';
+    startupRateEl.appendChild(opt);
+  }
+  if (rate > 0) startupRateEl.value = rate;
+
+  // 경고 표시
+  const warnEl = document.getElementById('startupWarning');
+  if (warnEl) {
+    warnEl.textContent = warning;
+    warnEl.style.display = warning ? 'block' : 'none';
+  }
+
+  updateReductionSummary();
+}
+
+// 감면 근거 안내 메시지
+function updateReductionSummary() {
+  const el = document.getElementById('reductionSummary');
+  if (!el) return;
+
+  const code = document.getElementById('industryCode').value.trim();
+  const d = (code.length >= 6 && typeof getIndustry === 'function') ? getIndustry(code) : null;
+  if (!d) { el.textContent = ''; return; }
+
+  const region = getRegion();
+  const regionLabel = region === 'non_capital' ? '비수도권' : region === 'capital_non_dense' ? '수도권(과밀억제 외)' : '과밀억제권역';
+
+  const msgs = [];
+
+  // 중특감
+  const smeRateEl = document.getElementById('smeRate');
+  if (smeRateEl) {
+    const rate = Number(smeRateEl.value);
+    const revenue = pv('totalRevenue');
+    const threshold = getSmallBizThreshold(d.cd);
+    const sizeLabel = (revenue > 0 ? revenue <= threshold : true) ? '소기업' : '중기업';
+    if (rate > 0) {
+      msgs.push('중특감: ' + sizeLabel + ' + ' + regionLabel + ' → ' + rate + '%');
+    } else {
+      msgs.push('중특감: ' + sizeLabel + ' + ' + regionLabel + ' → 감면 불가');
+    }
+  }
+
+  // 창업감면
+  const startupRateEl = document.getElementById('startupSmeRate');
+  if (startupRateEl) {
+    const youthEl = document.querySelector('input[name="isYouth"]:checked');
+    const isYouth = youthEl ? youthEl.value === 'yes' : false;
+    const youthLabel = isYouth ? '청년창업' : '일반창업';
+    const rate = Number(startupRateEl.value);
+    if (region === 'dense' && !isYouth) {
+      msgs.push('창업감면: ' + youthLabel + ' + ' + regionLabel + ' → 감면 불가');
+    } else {
+      msgs.push('창업감면: ' + youthLabel + ' + ' + regionLabel + ' → ' + rate + '%');
+    }
+  }
+
+  el.textContent = msgs.join('  |  ');
 }
 
 // 업종코드 이벤트 바인딩
@@ -468,6 +589,15 @@ document.addEventListener('DOMContentLoaded', function() {
   if (revInput) {
     revInput.addEventListener('blur', updateSizeAutoDetect);
   }
+  // 지역 라디오 변경 시 감면율 재산출
+  document.querySelectorAll('input[name="regionType"]').forEach(r => {
+    r.addEventListener('change', function() {
+      const code = document.getElementById('industryCode').value.trim();
+      const d = (code.length >= 6 && typeof getIndustry === 'function') ? getIndustry(code) : null;
+      if (d) autoSetSmeRate(d);
+      autoSetStartupRate();
+    });
+  });
 });
 
 // 동적으로 추가된 input에 콤마 포맷 재바인딩
