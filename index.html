@@ -154,6 +154,7 @@ table.result tr.section-header td { background: #333F4F; color: #fff; font-weigh
       <div class="form-group"><label>영업외비용</label><input type="text" id="nonOpExpense" value="0"></div>
       <div class="form-group"><label>익금산입·손금불산입</label><input type="text" id="taxAdjPlus" value="0"></div>
       <div class="form-group"><label>손금산입·익금불산입</label><input type="text" id="taxAdjMinus" value="0"></div>
+      <div class="form-group"><label>이월결손금</label><input type="text" id="carryForwardLoss" value="0"></div>
     </div>
   </div>
 
@@ -750,6 +751,7 @@ function calculate() {
   const taxAdjPlus = pv('taxAdjPlus');   // 익금산입·손금불산입 (+)
   const taxAdjMinus = pv('taxAdjMinus'); // 손금산입·익금불산입 (-)
   const taxAdj = taxAdjPlus - taxAdjMinus;
+  const carryForwardLoss = pv('carryForwardLoss'); // 이월결손금
 
   // 세액 조정 (드롭다운/추가 방식에서 수집)
   const credits = collectCredits();
@@ -777,14 +779,18 @@ function calculate() {
     const netIncome = opIncome + nonOpIncome - nonOpExpense;
     const taxableIncome = netIncome + taxAdjPlus - taxAdjMinus;
 
-    // 산출세액
+    // 이월결손금 & 과세표준
+    const cfLoss = Math.min(carryForwardLoss, Math.max(0, taxableIncome)); // 차가감소득 한도
+    const taxBase = Math.max(0, taxableIncome - cfLoss);
+
+    // 산출세액 (과세표준 기준)
     let computedTax = 0;
-    if (taxableIncome <= 200000000) {
-      computedTax = taxableIncome * 0.09;
+    if (taxBase <= 200000000) {
+      computedTax = taxBase * 0.09;
     } else {
-      computedTax = (taxableIncome - 200000000) * 0.19 + 18000000;
+      computedTax = (taxBase - 200000000) * 0.19 + 18000000;
     }
-    if (taxableIncome <= 0) computedTax = 0;
+    if (taxBase <= 0) computedTax = 0;
 
     // 최저한세
     const minTax = netIncome * 0.07;
@@ -793,7 +799,7 @@ function calculate() {
     let startupSmeDeduction = 0;
     if (startupSmeActive) {
       // 현재는 기본 틀만: 감면대상소득 × 세율 × 감면비율
-      const startupTaxBase = startupSmeIncome > 0 ? startupSmeIncome : taxableIncome;
+      const startupTaxBase = startupSmeIncome > 0 ? startupSmeIncome : taxBase;
       let startupTax = 0;
       if (startupTaxBase <= 200000000) {
         startupTax = startupTaxBase * 0.09;
@@ -837,6 +843,7 @@ function calculate() {
       addExp,
       taxAdjPlus, taxAdjMinus,
       revenue, grossProfit, opIncome, netIncome, taxableIncome,
+      cfLoss, taxBase,
       computedTax, minTax, startupSmeDeduction, smeDeduction, smeLimit, rdCredit, empDeduction,
       socialCredit, customCreditTotal, interimTax, corpTax, localTax, farmTax, totalTax, netMargin
     };
@@ -848,7 +855,7 @@ function calculate() {
   lastCalcData = {
     companyName,
     scenarios: active,
-    inputs: { artSales, constIncome, goodsSales, serviceSales, goodsCost, constCost, sga, nonOpIncome, nonOpExpense, taxAdjPlus, taxAdjMinus, taxAdj, smeRate, rdAmount, empCredit, socialCredit, interimTax, startupSmeActive, startupSmeRate, startupSmeIncome, customCredits }
+    inputs: { artSales, constIncome, goodsSales, serviceSales, goodsCost, constCost, sga, nonOpIncome, nonOpExpense, taxAdjPlus, taxAdjMinus, taxAdj, carryForwardLoss, smeRate, rdAmount, empCredit, socialCredit, interimTax, startupSmeActive, startupSmeRate, startupSmeIncome, customCredits }
   };
 
   renderResult(companyName, active);
@@ -883,6 +890,8 @@ function renderResult(companyName, scenarios) {
   html += row('(+) 익금산입·손금불산입', 'taxAdjPlus', 'row-yellow');
   html += row('(-) 손금산입·익금불산입', 'taxAdjMinus', 'row-yellow');
   html += row('차가감소득금액', 'taxableIncome', 'row-orange');
+  html += row('(-) 이월결손금', 'cfLoss', 'row-yellow');
+  html += row('과세표준', 'taxBase', 'row-orange');
 
   // 세액 섹션
   html += '<tr class="section-header"><td colspan="' + (colCount + 1) + '">세액 계산</td></tr>';
@@ -1138,15 +1147,19 @@ async function exportXlsx() {
   wr(24, '(-) 손금산입·익금불산입', scenarios.map(()=>inp.taxAdjMinus), {bv:true, f:yellowFill, bt:'hair',bb:'thin'});
   // Row 25: 차가감소득금액 (orange)
   wr(25, '차가감소득금액', sv('taxableIncome'), {b:true, f:orangeFill, bt:'thin'});
-  // Row 26: 산출세액 (blue, top medium)
-  wr(26, '산출세액', sv('computedTax'), {b:true, f:blueFill, bt:'medium'});
-  // Row 27+: 공제/감면 항목 (동적 행 번호)
-  let exRow = 27;
+  // Row 26: 이월결손금 (yellow)
+  wr(26, '(-) 이월결손금', sv('cfLoss'), {f:yellowFill, bt:'hair',bb:'thin'});
+  // Row 27: 과세표준 (orange)
+  wr(27, '과세표준', sv('taxBase'), {b:true, f:orangeFill, bt:'thin',bb:'thin'});
+  // Row 28: 산출세액 (blue, top medium)
+  wr(28, '산출세액', sv('computedTax'), {b:true, f:blueFill, bt:'medium'});
+  // Row 29+: 공제/감면 항목 (동적 행 번호)
+  let exRow = 29;
   if (inp.startupSmeActive) {
     wr(exRow, '창업중소기업세액감면', sv('startupSmeDeduction'), {bt:'medium',bb:'hair', bigo:'감면율 '+Math.round(inp.startupSmeRate*100)+'%'});
     exRow++;
   }
-  wr(exRow, '중소기업특별세액감면',   sv('smeDeduction'),                      {bt: exRow===27?'medium':'hair', bb:'hair', bigo:'서비스업 '+Math.round(inp.smeRate*100)+'%'});
+  wr(exRow, '중소기업특별세액감면',   sv('smeDeduction'),                      {bt: exRow===29?'medium':'hair', bb:'hair', bigo:'서비스업 '+Math.round(inp.smeRate*100)+'%'});
   exRow++;
   wr(exRow, '연구인력개발비세액공제',  sv('rdCredit'),                          {bt:'hair',bb:'hair', bigo:'급여+4대보험료 반영'});
   exRow++;
