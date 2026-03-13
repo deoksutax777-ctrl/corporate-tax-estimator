@@ -141,13 +141,8 @@ table.result tr.section-header td { background: #333F4F; color: #fff; font-weigh
         <input type="date" id="docDate" value="">
       </div>
 
-      <div class="form-group"><label>미술품판매수입</label><input type="text" id="artSales" value="0"></div>
-      <div class="form-group"><label>공사수입금</label><input type="text" id="constIncome" value="0"></div>
-      <div class="form-group"><label>상품판매</label><input type="text" id="goodsSales" value="0"></div>
-      <div class="form-group"><label>서비스매출</label><input type="text" id="serviceSales" value="0"></div>
-
-      <div class="form-group"><label>상품매출원가</label><input type="text" id="goodsCost" value="0"></div>
-      <div class="form-group"><label>공사매출원가</label><input type="text" id="constCost" value="0"></div>
+      <div class="form-group"><label>총매출</label><input type="text" id="totalRevenue" value="0"></div>
+      <div class="form-group"><label>매출원가</label><input type="text" id="totalCost" value="0"></div>
 
       <div class="form-group"><label>판매비와관리비</label><input type="text" id="sga" value="0"></div>
       <div class="form-group"><label>영업외수익</label><input type="text" id="nonOpIncome" value="0"></div>
@@ -677,14 +672,10 @@ function parseIncomeStatement(data) {
 
   // 매핑: 항목명 키워드 → 입력 필드 ID, 매출 세부항목은 개별금액(curr), 합계항목은 합계금액
   const fieldMappings = [
-    // 매출 세부항목 (개별 금액)
-    { keywords: ['미술품판매'], id: 'artSales' },
-    { keywords: ['공사수입'], id: 'constIncome' },
-    { keywords: ['상품판매'], id: 'goodsSales' },
-    { keywords: ['서비스매출'], id: 'serviceSales' },
+    // 매출 (합계)
+    { keywords: ['매출액', '매출합계', '총매출', '미술품판매', '공사수입', '상품판매', '서비스매출'], id: 'totalRevenue' },
     // 원가 (합계)
-    { keywords: ['상품매출원가'], id: 'goodsCost' },
-    { keywords: ['도급공사매출원가', '공사매출원가'], id: 'constCost' },
+    { keywords: ['매출원가', '상품매출원가', '도급공사매출원가', '공사매출원가'], id: 'totalCost' },
     // 판관비 (합계)
     { keywords: ['판매비와관리비', '판관비'], id: 'sga' },
     // 영업외 (합계)
@@ -711,24 +702,15 @@ function parseIncomeStatement(data) {
     }
   }
 
-  // 매출액이 세부항목으로 안 잡힌 경우: 매출액 합계를 서비스매출에 넣기
-  if (!matched.has('artSales') && !matched.has('constIncome') && !matched.has('goodsSales') && !matched.has('serviceSales')) {
-    const revItem = items.find(i => i.name.replace(/\s/g, '').includes('매출액'));
-    if (revItem && revItem.curr) {
-      document.getElementById('serviceSales').value = Math.abs(revItem.curr).toLocaleString('ko-KR');
-      console.log('[매핑-fallback] 매출액 → serviceSales =', revItem.curr);
-    }
-  }
-
-  // 매출원가가 세부로 안 잡힌 경우: 매출원가 합계를 상품매출원가에
-  if (!matched.has('goodsCost') && !matched.has('constCost')) {
+  // 매출원가가 안 잡힌 경우 fallback
+  if (!matched.has('totalCost')) {
     const costItem = items.find(i => {
       const n = i.name.replace(/\s/g, '');
-      return n.includes('매출원가') && !n.includes('상품') && !n.includes('공사') && !n.includes('도급');
+      return n.includes('매출원가');
     });
     if (costItem && costItem.curr) {
-      document.getElementById('goodsCost').value = Math.abs(costItem.curr).toLocaleString('ko-KR');
-      console.log('[매핑-fallback] 매출원가 → goodsCost =', costItem.curr);
+      document.getElementById('totalCost').value = Math.abs(costItem.curr).toLocaleString('ko-KR');
+      console.log('[매핑-fallback] 매출원가 → totalCost =', costItem.curr);
     }
   }
 
@@ -739,12 +721,8 @@ function calculate() {
   const companyName = document.getElementById('companyName').value || '(회사명)';
 
   // 기본 입력
-  const artSales = pv('artSales');
-  const constIncome = pv('constIncome');
-  const goodsSales = pv('goodsSales');
-  const serviceSales = pv('serviceSales');
-  const goodsCost = pv('goodsCost');
-  const constCost = pv('constCost');
+  const totalRevenue = pv('totalRevenue');
+  const totalCost = pv('totalCost');
   const sga = pv('sga');
   const nonOpIncome = pv('nonOpIncome');
   const nonOpExpense = pv('nonOpExpense');
@@ -773,8 +751,8 @@ function calculate() {
 
   // 시나리오별 계산
   const scenarios = addExps.map((addExp, idx) => {
-    const revenue = artSales + constIncome + goodsSales + serviceSales;
-    const grossProfit = revenue - goodsCost - constCost;
+    const revenue = totalRevenue;
+    const grossProfit = revenue - totalCost;
     const opIncome = grossProfit - sga - addExp;
     const netIncome = opIncome + nonOpIncome - nonOpExpense;
     const taxableIncome = netIncome + taxAdjPlus - taxAdjMinus;
@@ -855,7 +833,7 @@ function calculate() {
   lastCalcData = {
     companyName,
     scenarios: active,
-    inputs: { artSales, constIncome, goodsSales, serviceSales, goodsCost, constCost, sga, nonOpIncome, nonOpExpense, taxAdjPlus, taxAdjMinus, taxAdj, carryForwardLoss, smeRate, rdAmount, empCredit, socialCredit, interimTax, startupSmeActive, startupSmeRate, startupSmeIncome, customCredits }
+    inputs: { totalRevenue, totalCost, sga, nonOpIncome, nonOpExpense, taxAdjPlus, taxAdjMinus, taxAdj, carryForwardLoss, smeRate, rdAmount, empCredit, socialCredit, interimTax, startupSmeActive, startupSmeRate, startupSmeIncome, customCredits }
   };
 
   renderResult(companyName, active);
@@ -1119,47 +1097,41 @@ async function exportXlsx() {
     bc.border = mkBdr(o.bt||null, o.bb||null, 'thin', null);
   }
 
-  // Row 9-12: 매출 세부
-  wr(9,  '미술품판매수입', scenarios.map(()=>inp.artSales),       {bt:'double',bb:'hair'});
-  wr(10, '공사수입금',     scenarios.map(()=>inp.constIncome),     {bt:'hair',bb:'hair'});
-  wr(11, '상품판매',       scenarios.map(()=>inp.goodsSales),      {bt:'hair',bb:'hair'});
-  wr(12, '서비스매출',     scenarios.map(()=>inp.serviceSales),    {bt:'hair',bb:'thin'});
-  // Row 13: 매출액 (subtotal - blue)
-  wr(13, '매출액', sv('revenue'), {b:true, f:blueFill, bt:'thin',bb:'thin'});
-  // Row 14-15: 원가
-  wr(14, '상품매출원가', scenarios.map(()=>inp.goodsCost),  {bt:'thin',bb:'hair'});
-  wr(15, '공사매출원가', scenarios.map(()=>inp.constCost),  {bt:'hair',bb:'thin'});
-  // Row 16: 매출총이익
-  wr(16, '매출총이익', sv('grossProfit'), {b:true, f:blueFill, bt:'thin',bb:'thin'});
-  // Row 17: 판관비
-  wr(17, '판관비', scenarios.map(()=>inp.sga), {bt:'thin',bb:'hair'});
-  // Row 18: 추가경비 (green, red font)
-  wr(18, '추가경비', sv('addExp'), {b:true, redFont:true, f:greenFill, bt:'hair',bb:'thin'});
-  // Row 19: 영업이익
-  wr(19, '영업이익', sv('opIncome'), {b:true, f:blueFill, bt:'thin'});
-  // Row 20-21: 영업외
-  wr(20, '영업외수익', scenarios.map(()=>inp.nonOpIncome),  {bt:'double',bb:'hair'});
-  wr(21, '영업외비용', scenarios.map(()=>inp.nonOpExpense), {bt:'hair',bb:'thin'});
-  // Row 22: 당기순이익 (orange, bottom double)
-  wr(22, '당기순이익', sv('netIncome'), {b:true, f:orangeFill, bt:'thin',bb:'double'});
-  // Row 23-24: 세무조정 (yellow)
-  wr(23, '(+) 익금산입·손금불산입', scenarios.map(()=>inp.taxAdjPlus),  {bv:true, f:yellowFill, bb:'hair'});
-  wr(24, '(-) 손금산입·익금불산입', scenarios.map(()=>inp.taxAdjMinus), {bv:true, f:yellowFill, bt:'hair',bb:'thin'});
-  // Row 25: 차가감소득금액 (orange)
-  wr(25, '차가감소득금액', sv('taxableIncome'), {b:true, f:orangeFill, bt:'thin'});
-  // Row 26: 이월결손금 (yellow)
-  wr(26, '(-) 이월결손금', sv('cfLoss'), {f:yellowFill, bt:'hair',bb:'thin'});
-  // Row 27: 과세표준 (orange)
-  wr(27, '과세표준', sv('taxBase'), {b:true, f:orangeFill, bt:'thin',bb:'thin'});
-  // Row 28: 산출세액 (blue, top medium)
-  wr(28, '산출세액', sv('computedTax'), {b:true, f:blueFill, bt:'medium'});
-  // Row 29+: 공제/감면 항목 (동적 행 번호)
-  let exRow = 29;
+  // Row 9: 총매출
+  wr(9,  '총매출', scenarios.map(()=>inp.totalRevenue), {bt:'double',bb:'thin'});
+  // Row 10: 매출원가
+  wr(10, '매출원가', scenarios.map(()=>inp.totalCost), {bt:'thin',bb:'thin'});
+  // Row 11: 매출총이익
+  wr(11, '매출총이익', sv('grossProfit'), {b:true, f:blueFill, bt:'thin',bb:'thin'});
+  // Row 12: 판관비
+  wr(12, '판관비', scenarios.map(()=>inp.sga), {bt:'thin',bb:'hair'});
+  // Row 13: 추가경비 (green, red font)
+  wr(13, '추가경비', sv('addExp'), {b:true, redFont:true, f:greenFill, bt:'hair',bb:'thin'});
+  // Row 14: 영업이익
+  wr(14, '영업이익', sv('opIncome'), {b:true, f:blueFill, bt:'thin'});
+  // Row 15-16: 영업외
+  wr(15, '영업외수익', scenarios.map(()=>inp.nonOpIncome),  {bt:'double',bb:'hair'});
+  wr(16, '영업외비용', scenarios.map(()=>inp.nonOpExpense), {bt:'hair',bb:'thin'});
+  // Row 17: 당기순이익 (orange, bottom double)
+  wr(17, '당기순이익', sv('netIncome'), {b:true, f:orangeFill, bt:'thin',bb:'double'});
+  // Row 18-19: 세무조정 (yellow)
+  wr(18, '(+) 익금산입·손금불산입', scenarios.map(()=>inp.taxAdjPlus),  {bv:true, f:yellowFill, bb:'hair'});
+  wr(19, '(-) 손금산입·익금불산입', scenarios.map(()=>inp.taxAdjMinus), {bv:true, f:yellowFill, bt:'hair',bb:'thin'});
+  // Row 20: 차가감소득금액 (orange)
+  wr(20, '차가감소득금액', sv('taxableIncome'), {b:true, f:orangeFill, bt:'thin'});
+  // Row 21: 이월결손금 (yellow)
+  wr(21, '(-) 이월결손금', sv('cfLoss'), {f:yellowFill, bt:'hair',bb:'thin'});
+  // Row 22: 과세표준 (orange)
+  wr(22, '과세표준', sv('taxBase'), {b:true, f:orangeFill, bt:'thin',bb:'thin'});
+  // Row 23: 산출세액 (blue, top medium)
+  wr(23, '산출세액', sv('computedTax'), {b:true, f:blueFill, bt:'medium'});
+  // Row 24+: 공제/감면 항목 (동적 행 번호)
+  let exRow = 24;
   if (inp.startupSmeActive) {
     wr(exRow, '창업중소기업세액감면', sv('startupSmeDeduction'), {bt:'medium',bb:'hair', bigo:'감면율 '+Math.round(inp.startupSmeRate*100)+'%'});
     exRow++;
   }
-  wr(exRow, '중소기업특별세액감면',   sv('smeDeduction'),                      {bt: exRow===29?'medium':'hair', bb:'hair', bigo:'서비스업 '+Math.round(inp.smeRate*100)+'%'});
+  wr(exRow, '중소기업특별세액감면',   sv('smeDeduction'),                      {bt: exRow===24?'medium':'hair', bb:'hair', bigo:'서비스업 '+Math.round(inp.smeRate*100)+'%'});
   exRow++;
   wr(exRow, '연구인력개발비세액공제',  sv('rdCredit'),                          {bt:'hair',bb:'hair', bigo:'급여+4대보험료 반영'});
   exRow++;
