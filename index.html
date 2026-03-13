@@ -53,6 +53,24 @@ table.result tr.section-header td { background: #333F4F; color: #fff; font-weigh
 
 .info-box { background: #fffbeb; border: 1px solid #fbbf24; border-radius: 6px; padding: 10px 14px; margin-top: 12px; font-size: 0.85em; }
 
+/* 세액감면/공제 동적 UI */
+.dropdown-add-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.dropdown-add-row select { flex: 1; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; }
+.dynamic-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #eee; }
+.dynamic-row .dynamic-label { min-width: 160px; font-size: 0.9em; font-weight: 500; }
+.dynamic-row .dynamic-fields { display: flex; align-items: center; gap: 6px; flex: 1; }
+.dynamic-row .dynamic-fields label { font-size: 0.85em; white-space: nowrap; color: #555; }
+.dynamic-row .dynamic-fields input { width: 120px; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; text-align: right; }
+.dynamic-row .dynamic-fields input:focus { outline: none; border-color: #1a56db; box-shadow: 0 0 0 2px rgba(26,86,219,0.15); }
+.dynamic-row .name-input { flex: 1; min-width: 120px; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; text-align: left; }
+.dynamic-row .name-input:focus { outline: none; border-color: #1a56db; box-shadow: 0 0 0 2px rgba(26,86,219,0.15); }
+.dynamic-row .amount-input { width: 160px; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; text-align: right; }
+.dynamic-row .amount-input:focus { outline: none; border-color: #1a56db; box-shadow: 0 0 0 2px rgba(26,86,219,0.15); }
+.btn-add { padding: 6px 16px; background: #1a56db; color: #fff; border: none; border-radius: 4px; font-size: 0.85em; cursor: pointer; font-weight: 500; }
+.btn-add:hover { background: #1444b0; }
+.btn-remove { background: none; border: none; color: #dc2626; font-size: 1.1em; cursor: pointer; padding: 2px 6px; }
+.btn-remove:hover { color: #991b1b; }
+
 @page { size: A4; margin: 10mm; }
 @media print {
   body { background: #fff; padding: 0; transform: scale(0.9); transform-origin: top left; width: 111.11%; }
@@ -124,13 +142,21 @@ table.result tr.section-header td { background: #333F4F; color: #fff; font-weigh
   <!-- 세액 조정 -->
   <div class="input-section">
     <h2>세액 조정 항목</h2>
-    <div class="form-grid">
-      <div class="form-group"><label>중소기업감면 비율(%)</label><input type="text" id="smeRate" value="20"></div>
-      <div class="form-group"><label>연구인력개발비 대상</label><input type="text" id="rdAmount" value="0"></div>
-      <div class="form-group"><label>고용증대공제 가능액</label><input type="text" id="empCredit" value="0"></div>
-      <div class="form-group"><label>사회보험료 세액공제</label><input type="text" id="socialCredit" value="0"></div>
-      <div class="form-group"><label>중간예납세액</label><input type="text" id="interimTax" value="0"></div>
+
+    <h3 style="font-size:0.95em; margin:0 0 8px; color:#555;">세액감면/공제 선택</h3>
+    <div class="dropdown-add-row">
+      <select id="creditSelect">
+        <option value="startupSme">창업중소기업세액감면</option>
+        <option value="smeRate">중소기업특별세액감면</option>
+        <option value="rdAmount">연구인력개발비세액공제</option>
+      </select>
+      <button type="button" class="btn-add" onclick="addGroupAItem()">추가</button>
     </div>
+    <div id="groupAItems"></div>
+
+    <h3 style="font-size:0.95em; margin:16px 0 8px; color:#555;">기타 세액공제</h3>
+    <div id="groupBItems"></div>
+    <button type="button" class="btn-add" onclick="addGroupBItem()" style="margin-top:8px;">+ 항목 추가</button>
 
     <h3 style="font-size:0.95em; margin:16px 0 8px; color:#555;">추가경비 시나리오</h3>
     <div class="scenario-grid">
@@ -159,6 +185,116 @@ table.result tr.section-header td { background: #333F4F; color: #fff; font-weigh
 
 <script>
 let lastCalcData = null;
+let gaIdCounter = 0;
+let gbIdCounter = 0;
+
+const GROUP_A_DEFS = {
+  startupSme: {
+    label: '창업중소기업세액감면',
+    fields: [
+      { name: 'rate', label: '감면비율(%)', default: '100' },
+      { name: 'amount', label: '감면대상세액', default: '0' }
+    ]
+  },
+  smeRate: {
+    label: '중소기업특별세액감면',
+    fields: [
+      { name: 'rate', label: '비율(%)', default: '20' }
+    ]
+  },
+  rdAmount: {
+    label: '연구인력개발비세액공제',
+    fields: [
+      { name: 'amount', label: '대상금액', default: '0' }
+    ]
+  }
+};
+
+function addGroupAItem() {
+  const select = document.getElementById('creditSelect');
+  const type = select.value;
+  const def = GROUP_A_DEFS[type];
+  const container = document.getElementById('groupAItems');
+  if (container.querySelector('[data-type="' + type + '"]')) {
+    alert('이미 추가된 항목입니다.');
+    return;
+  }
+  const id = 'ga_' + (++gaIdCounter);
+  let fieldsHtml = '';
+  for (const f of def.fields) {
+    fieldsHtml += '<label>' + f.label + '</label><input type="text" data-field="' + f.name + '" value="' + f.default + '">';
+  }
+  const row = document.createElement('div');
+  row.className = 'dynamic-row';
+  row.dataset.type = type;
+  row.dataset.id = id;
+  row.innerHTML =
+    '<span class="dynamic-label">' + def.label + '</span>' +
+    '<div class="dynamic-fields">' + fieldsHtml + '</div>' +
+    '<button type="button" class="btn-remove" onclick="removeRow(this)">✕</button>';
+  container.appendChild(row);
+  attachCommaFormat(row);
+}
+
+function addGroupBItem(name, amount) {
+  name = name || '';
+  amount = amount || '0';
+  const id = 'gb_' + (++gbIdCounter);
+  const container = document.getElementById('groupBItems');
+  const row = document.createElement('div');
+  row.className = 'dynamic-row';
+  row.dataset.type = 'custom';
+  row.dataset.id = id;
+  row.innerHTML =
+    '<input type="text" class="name-input" value="' + name + '" placeholder="항목명">' +
+    '<input type="text" class="amount-input" value="' + amount + '" placeholder="금액">' +
+    '<button type="button" class="btn-remove" onclick="removeRow(this)">✕</button>';
+  container.appendChild(row);
+  attachCommaFormat(row);
+}
+
+function removeRow(btn) {
+  btn.closest('.dynamic-row').remove();
+}
+
+function attachCommaFormat(container) {
+  container.querySelectorAll('input[type=text]').forEach(inp => {
+    if (inp.classList.contains('name-input')) return;
+    inp.addEventListener('blur', function() {
+      const v = Number(this.value.replace(/,/g, ''));
+      if (!isNaN(v) && this.value.trim() !== '') {
+        this.value = v.toLocaleString('ko-KR');
+      }
+    });
+  });
+}
+
+function collectDeductions() {
+  const result = {
+    startupSme: null,
+    smeRate: 0,
+    rdAmount: 0,
+    customCredits: []
+  };
+  document.querySelectorAll('#groupAItems .dynamic-row').forEach(row => {
+    const type = row.dataset.type;
+    if (type === 'startupSme') {
+      const rate = Number((row.querySelector('[data-field="rate"]')?.value || '0').replace(/,/g, '')) || 0;
+      const amount = Number((row.querySelector('[data-field="amount"]')?.value || '0').replace(/,/g, '')) || 0;
+      result.startupSme = { rate: rate / 100, amount };
+    } else if (type === 'smeRate') {
+      result.smeRate = (Number((row.querySelector('[data-field="rate"]')?.value || '0').replace(/,/g, '')) || 0) / 100;
+    } else if (type === 'rdAmount') {
+      result.rdAmount = Number((row.querySelector('[data-field="amount"]')?.value || '0').replace(/,/g, '')) || 0;
+    }
+  });
+  document.querySelectorAll('#groupBItems .dynamic-row').forEach(row => {
+    const name = (row.querySelector('.name-input')?.value || '').trim();
+    const amount = Number((row.querySelector('.amount-input')?.value || '0').replace(/,/g, '')) || 0;
+    if (name) result.customCredits.push({ name, amount });
+  });
+  return result;
+}
 
 // 숫자 포맷
 function fmt(n) {
@@ -178,7 +314,7 @@ function pv(id) {
 
 // 입력 필드에 숫자 자동 콤마 포맷
 document.querySelectorAll('.form-grid input[type=text], .scenario-grid input[type=text]').forEach(inp => {
-  if (inp.id === 'companyName' || inp.id === 'smeRate') return;
+  if (inp.id === 'companyName') return;
   inp.addEventListener('blur', function() {
     const v = Number(this.value.replace(/,/g, ''));
     if (!isNaN(v) && this.value.trim() !== '') {
@@ -506,12 +642,13 @@ function calculate() {
   const taxAdjMinus = pv('taxAdjMinus'); // 손금산입·익금불산입 (-)
   const taxAdj = taxAdjPlus - taxAdjMinus;
 
-  // 세액 조정
-  const smeRate = pv('smeRate') / 100;
-  const rdAmount = pv('rdAmount');
-  const empCredit = pv('empCredit');
-  const socialCredit = pv('socialCredit');
-  const interimTax = pv('interimTax');
+  // 세액 조정 (동적 UI에서 수집)
+  const ded = collectDeductions();
+  const smeRate = ded.smeRate;
+  const rdAmount = ded.rdAmount;
+  const empCredit = ded.customCredits.find(c => c.name.includes('고용증대'))?.amount || 0;
+  const socialCredit = ded.customCredits.find(c => c.name.includes('사회보험'))?.amount || 0;
+  const interimTax = ded.customCredits.find(c => c.name.includes('중간예납'))?.amount || 0;
 
   // 추가경비
   const addExps = [0, pv('addExp1'), pv('addExp2'), pv('addExp3')];
@@ -578,7 +715,8 @@ function calculate() {
   lastCalcData = {
     companyName,
     scenarios: active,
-    inputs: { artSales, constIncome, goodsSales, serviceSales, goodsCost, constCost, sga, nonOpIncome, nonOpExpense, taxAdjPlus, taxAdjMinus, taxAdj, smeRate, rdAmount, empCredit, socialCredit, interimTax }
+    inputs: { artSales, constIncome, goodsSales, serviceSales, goodsCost, constCost, sga, nonOpIncome, nonOpExpense, taxAdjPlus, taxAdjMinus, taxAdj, smeRate, rdAmount, empCredit, socialCredit, interimTax },
+    deductions: ded
   };
 
   renderResult(companyName, active);
@@ -617,11 +755,41 @@ function renderResult(companyName, scenarios) {
   // 세액 섹션
   html += '<tr class="section-header"><td colspan="' + (colCount + 1) + '">세액 계산</td></tr>';
   html += row('산출세액', 'computedTax', 'row-blue');
-  html += row('(-) 중소기업특별세액감면', 'smeDeduction');
-  html += row('(-) 연구인력개발비세액공제', 'rdCredit');
-  html += row('(-) 고용증대세액공제', 'empDeduction');
-  html += row('(-) 사회보험료세액공제', 'socialCredit');
-  html += row('(-) 중간예납세액', 'interimTax');
+  // 동적 감면/공제 항목
+  if (lastCalcData.deductions) {
+    const ded = lastCalcData.deductions;
+    if (ded.startupSme) {
+      html += '<tr class="row-yellow"><td>(-) 창업중소기업세액감면 (미반영)</td>';
+      for (const s of scenarios) html += '<td>-</td>';
+      html += '</tr>';
+    }
+    if (ded.smeRate > 0) {
+      html += row('(-) 중소기업특별세액감면', 'smeDeduction');
+    }
+    if (ded.rdAmount > 0) {
+      html += row('(-) 연구인력개발비세액공제', 'rdCredit');
+    }
+    // 기타 세액공제 (고용증대, 사회보험, 중간예납 등)
+    for (const c of ded.customCredits) {
+      if (c.name.includes('고용증대')) {
+        html += row('(-) ' + c.name, 'empDeduction');
+      } else if (c.name.includes('사회보험')) {
+        html += row('(-) ' + c.name, 'socialCredit');
+      } else if (c.name.includes('중간예납')) {
+        html += row('(-) ' + c.name, 'interimTax');
+      } else {
+        html += '<tr><td>(-) ' + c.name + '</td>';
+        for (const s of scenarios) html += '<td>' + fmt(c.amount) + '</td>';
+        html += '</tr>';
+      }
+    }
+  } else {
+    html += row('(-) 중소기업특별세액감면', 'smeDeduction');
+    html += row('(-) 연구인력개발비세액공제', 'rdCredit');
+    html += row('(-) 고용증대세액공제', 'empDeduction');
+    html += row('(-) 사회보험료세액공제', 'socialCredit');
+    html += row('(-) 중간예납세액', 'interimTax');
+  }
   html += row('법인세', 'corpTax', 'row-orange');
   html += row('지방소득세', 'localTax', 'row-orange');
   html += row('농특세', 'farmTax', 'row-orange');
@@ -858,25 +1026,60 @@ async function exportXlsx() {
   wr(25, '차가감소득금액', sv('taxableIncome'), {b:true, f:orangeFill, bt:'thin'});
   // Row 26: 산출세액 (blue, top medium)
   wr(26, '산출세액', sv('computedTax'), {b:true, f:blueFill, bt:'medium'});
-  // Row 27-31: 공제/감면 항목
-  wr(27, '중소기업특별세액감면',   sv('smeDeduction'),                      {bt:'medium',bb:'hair', bigo:'서비스업 '+Math.round(inp.smeRate*100)+'%'});
-  wr(28, '연구인력개발비세액공제',  sv('rdCredit'),                          {bt:'hair',bb:'hair', bigo:'급여+4대보험료 반영'});
-  wr(29, '고용증대세액공제',       sv('empDeduction'),                       {bt:'hair',bb:'hair'});
-  wr(30, '사회보험료세액공제',     scenarios.map(()=>inp.socialCredit),       {bt:'hair',bb:'hair'});
-  wr(31, '중간예납세액',          scenarios.map(()=>inp.interimTax),         {bt:'hair',bb:'thin'});
-  // Row 32-34: 법인세/지방소득세/농특세 (orange)
-  wr(32, '법인세',     sv('corpTax'),  {b:true, f:orangeFill, bt:'thin',bb:'hair'});
-  wr(33, '지방소득세',  sv('localTax'), {b:true, f:orangeFill, bt:'hair',bb:'hair'});
-  wr(34, '농특세',     sv('farmTax'),  {b:true, f:orangeFill, bt:'hair',bb:'thin'});
-  // Row 35: 총 납부할 세액 (bright yellow)
-  wr(35, '총 납부할 세액', sv('totalTax'), {b:true, f:yBrightFill, bt:'thin'});
-  // Row 36: 당기순이익율
-  wr(36, '당기순이익율', scenarios.map(s=>s.netMargin), {pct:true, bt:'double',bb:'thin'});
+  // 공제/감면 항목 (동적 row)
+  let dr = 27;
+  const ded = lastCalcData.deductions;
+  if (ded) {
+    if (ded.startupSme) {
+      wr(dr, '창업중소기업세액감면', scenarios.map(()=>0), {bt:'medium',bb:'hair', bigo:'감면비율 '+Math.round(ded.startupSme.rate*100)+'% (미반영)'});
+      dr++;
+    }
+    if (ded.smeRate > 0) {
+      wr(dr, '중소기업특별세액감면', sv('smeDeduction'), {bt:dr===27?'medium':'hair',bb:'hair', bigo:'서비스업 '+Math.round(inp.smeRate*100)+'%'});
+      dr++;
+    }
+    if (ded.rdAmount > 0) {
+      wr(dr, '연구인력개발비세액공제', sv('rdCredit'), {bt:'hair',bb:'hair', bigo:'급여+4대보험료 반영'});
+      dr++;
+    }
+    for (const c of ded.customCredits) {
+      let vals;
+      if (c.name.includes('고용증대')) vals = sv('empDeduction');
+      else if (c.name.includes('사회보험')) vals = scenarios.map(()=>inp.socialCredit);
+      else if (c.name.includes('중간예납')) vals = scenarios.map(()=>inp.interimTax);
+      else vals = scenarios.map(()=>c.amount);
+      wr(dr, c.name, vals, {bt:'hair',bb:'hair'});
+      dr++;
+    }
+  } else {
+    wr(dr, '중소기업특별세액감면', sv('smeDeduction'), {bt:'medium',bb:'hair', bigo:'서비스업 '+Math.round(inp.smeRate*100)+'%'});
+    wr(dr+1, '연구인력개발비세액공제', sv('rdCredit'), {bt:'hair',bb:'hair', bigo:'급여+4대보험료 반영'});
+    wr(dr+2, '고용증대세액공제', sv('empDeduction'), {bt:'hair',bb:'hair'});
+    wr(dr+3, '사회보험료세액공제', scenarios.map(()=>inp.socialCredit), {bt:'hair',bb:'hair'});
+    wr(dr+4, '중간예납세액', scenarios.map(()=>inp.interimTax), {bt:'hair',bb:'thin'});
+    dr += 5;
+  }
+  // 마지막 공제 행 하단 border 보정
+  if (dr > 27) {
+    const lastDedRow = ws.getRow(dr - 1);
+    for (let col = 1; col <= bigoCol; col++) {
+      const c = lastDedRow.getCell(col);
+      if (c.border) c.border = {...c.border, bottom: {style:'thin', color:bk}};
+    }
+  }
+  // 법인세/지방소득세/농특세 (orange)
+  wr(dr, '법인세', sv('corpTax'), {b:true, f:orangeFill, bt:'thin',bb:'hair'}); dr++;
+  wr(dr, '지방소득세', sv('localTax'), {b:true, f:orangeFill, bt:'hair',bb:'hair'}); dr++;
+  wr(dr, '농특세', sv('farmTax'), {b:true, f:orangeFill, bt:'hair',bb:'thin'}); dr++;
+  // 총 납부할 세액 (bright yellow)
+  wr(dr, '총 납부할 세액', sv('totalTax'), {b:true, f:yBrightFill, bt:'thin'}); dr++;
+  // 당기순이익율
+  wr(dr, '당기순이익율', scenarios.map(s=>s.netMargin), {pct:true, bt:'double',bb:'thin'}); dr++;
 
-  // === Row 37: spacer ===
-  ws.getRow(37).height = 31.2;
+  // spacer
+  ws.getRow(dr).height = 31.2; dr++;
 
-  // === Auxiliary rows (38-43) ===
+  // === Auxiliary rows ===
   function wrAux(r, label, vals, o={}) {
     const row = ws.getRow(r); row.height = 31.2;
     const lc = row.getCell(1);
@@ -903,12 +1106,12 @@ async function exportXlsx() {
     bc.alignment = {horizontal:'center',vertical:'center'};
     bc.border = mkBdr(o.bt||null, o.bb||'thin', 'thin', null);
   }
-  wrAux(38, '고용증대공제가능액',          scenarios.map(()=>inp.empCredit),                    {hdr:true, bt:'thin',bb:'thin'});
-  wrAux(39, '최저한세',                   sv('minTax'),                                        {hdr:true, bb:'thin', bigo:'법인세 결과와 금액이 같아야 함'});
-  wrAux(40, '중소기업특별세액감면',         sv('smeLimit'),                                      {bt:'thin',bb:'thin'});
-  wrAux(41, '연구인력개발비 대상 금액',     scenarios.map(()=>inp.rdAmount),                      {bt:'thin'});
-  wrAux(42, '연구인력개발비 세액공제',      scenarios.map(()=>inp.rdAmount*0.25),                  {bt:'medium',bb:'thin'});
-  wrAux(43, '연구인력개발비 세액공제 잔액',  scenarios.map(s=>inp.rdAmount*0.25 - s.rdCredit),     {});
+  wrAux(dr, '고용증대공제가능액',          scenarios.map(()=>inp.empCredit),                    {hdr:true, bt:'thin',bb:'thin'}); dr++;
+  wrAux(dr, '최저한세',                   sv('minTax'),                                        {hdr:true, bb:'thin', bigo:'법인세 결과와 금액이 같아야 함'}); dr++;
+  wrAux(dr, '중소기업특별세액감면',         sv('smeLimit'),                                      {bt:'thin',bb:'thin'}); dr++;
+  wrAux(dr, '연구인력개발비 대상 금액',     scenarios.map(()=>inp.rdAmount),                      {bt:'thin'}); dr++;
+  wrAux(dr, '연구인력개발비 세액공제',      scenarios.map(()=>inp.rdAmount*0.25),                  {bt:'medium',bb:'thin'}); dr++;
+  wrAux(dr, '연구인력개발비 세액공제 잔액',  scenarios.map(s=>inp.rdAmount*0.25 - s.rdCredit),     {}); dr++;
 
   // Download
   const buf = await wb.xlsx.writeBuffer();
@@ -933,12 +1136,21 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('docDate').value = now.getFullYear()+'-'+pad2(now.getMonth()+1)+'-'+pad2(now.getDate());
 
   document.querySelectorAll('.form-grid input[type=text], .scenario-grid input[type=text]').forEach(inp => {
-    if (inp.id === 'companyName' || inp.id === 'smeRate') return;
+    if (inp.id === 'companyName') return;
     const v = Number(inp.value.replace(/,/g, ''));
     if (!isNaN(v) && v !== 0) {
       inp.value = v.toLocaleString('ko-KR');
     }
   });
+
+  // 기본 세액감면/공제 항목 추가
+  document.getElementById('creditSelect').value = 'smeRate';
+  addGroupAItem();
+
+  // 기본 기타 세액공제 항목 추가
+  addGroupBItem('고용증대공제', '0');
+  addGroupBItem('사회보험료세액공제', '0');
+  addGroupBItem('중간예납세액', '0');
 });
 </script>
 
