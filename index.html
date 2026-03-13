@@ -792,8 +792,8 @@ function calculate() {
     }
     if (taxBase <= 0) computedTax = 0;
 
-    // 최저한세
-    const minTax = netIncome * 0.07;
+    // 최저한세 (과세표준 기준)
+    const minTax = taxBase * 0.07;
 
     // 창업중소기업세액감면 (기본 틀 - 추후 상세 로직 추가 예정)
     let startupSmeDeduction = 0;
@@ -817,7 +817,7 @@ function calculate() {
     const rdCredit = Math.max(0, Math.min(rdAmount * 0.25, computedTax - startupSmeDeduction - smeDeduction));
 
     // 고용증대세액공제
-    const empLimit = (computedTax - netIncome * 0.07) - startupSmeDeduction - smeDeduction - socialCredit;
+    const empLimit = (computedTax - taxBase * 0.07) - startupSmeDeduction - smeDeduction - socialCredit;
     const empDeduction = Math.max(0, Math.min(empCredit, empLimit));
 
     // 기타 직접 추가 세액공제 합계
