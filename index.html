@@ -6,6 +6,7 @@
 <title>법인세 예상 세액표</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="industry_db.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #f5f5f5; color: #333; padding: 20px; }
@@ -59,6 +60,17 @@ h1 { text-align: center; margin-bottom: 20px; font-size: 1.5em; }
 .custom-credit-item input.credit-amount-input { width: 130px; padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; text-align: right; }
 .btn-add-custom { padding: 6px 14px; background: #e5e7eb; color: #374151; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.85em; cursor: pointer; white-space: nowrap; font-weight: 500; }
 .btn-add-custom:hover { background: #d1d5db; }
+
+/* 업종코드 입력 & 결과 */
+.industry-input-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.industry-input-row label { font-size: 0.9em; font-weight: 500; min-width: 80px; }
+.industry-input-row input { width: 160px; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; }
+.industry-input-row .industry-name { font-size: 0.9em; color: #555; }
+.industry-result { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px; font-size: 0.85em; line-height: 1.6; }
+.industry-result .industry-path { color: #555; font-size: 0.82em; }
+.size-detect { font-size: 0.85em; font-weight: 600; margin-top: 4px; padding: 4px 10px; border-radius: 4px; display: inline-block; }
+.size-detect.small { background: #dcfce7; color: #166534; }
+.size-detect.medium { background: #fef9c3; color: #854d0e; }
 
 /* 창업중소기업세액감면 서브필드 */
 .startup-sub-fields { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -151,6 +163,18 @@ table.result tr.section-header td { background: #333F4F; color: #fff; font-weigh
       <div class="form-group"><label>손금산입·익금불산입</label><input type="text" id="taxAdjMinus" value="0"></div>
       <div class="form-group"><label>이월결손금</label><input type="text" id="carryForwardLoss" value="0"></div>
     </div>
+  </div>
+
+  <!-- 업종 및 감면 설정 -->
+  <div class="input-section">
+    <h2>업종 및 감면 설정</h2>
+    <div class="industry-input-row">
+      <label>업종코드</label>
+      <input type="text" id="industryCode" placeholder="예: 300100" maxlength="6">
+      <span id="industryName" class="industry-name"></span>
+    </div>
+    <div id="industryResult" class="industry-result" style="display:none;"></div>
+    <div id="sizeAutoDetect" style="margin-top:6px;"></div>
   </div>
 
   <!-- 세액 조정 -->
@@ -340,6 +364,111 @@ function addCustomCredit() {
 function removeCustomCredit(btn) {
   btn.closest('.custom-credit-item').remove();
 }
+
+// ═══════ 업종코드 조회 & 소기업/중기업 자동 판정 ═══════
+
+// 소기업 매출액 기준 (중소기업기본법 시행령 별표3)
+function getSmallBizThreshold(cd) {
+  if (cd === 'C') return 12000000000;          // 제조업: 120억
+  if ('ABD E'.includes(cd)) return 8000000000; // 농림어업,광업,전기가스,수도하수: 80억
+  if (cd === 'F' || cd === 'H') return 8000000000; // 건설업, 운수창고: 80억
+  if (cd === 'G') return 5000000000;           // 도소매업: 50억
+  return 5000000000;                           // 기타: 50억
+}
+
+// 업종코드 입력 이벤트
+function onIndustryCodeInput() {
+  const code = document.getElementById('industryCode').value.trim();
+  const nameEl = document.getElementById('industryName');
+  const resultEl = document.getElementById('industryResult');
+
+  if (code.length < 6) {
+    nameEl.textContent = '';
+    resultEl.style.display = 'none';
+    updateSizeAutoDetect();
+    return;
+  }
+
+  const d = typeof getIndustry === 'function' ? getIndustry(code) : null;
+  if (!d) {
+    nameEl.textContent = '(코드 없음)';
+    nameEl.style.color = '#dc2626';
+    resultEl.style.display = 'none';
+    updateSizeAutoDetect();
+    return;
+  }
+
+  nameEl.textContent = d.name;
+  nameEl.style.color = '#333';
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<strong>' + d.name + '</strong><br><span class="industry-path">' +
+    d.cn + ' > ' + d.mn + ' > ' + d.sn + '</span>';
+
+  updateSizeAutoDetect();
+  autoSetSmeRate(d);
+}
+
+// 매출 기준 소기업/중기업 자동 판정 표시
+function updateSizeAutoDetect() {
+  const el = document.getElementById('sizeAutoDetect');
+  const code = document.getElementById('industryCode').value.trim();
+  const d = (code.length >= 6 && typeof getIndustry === 'function') ? getIndustry(code) : null;
+
+  if (!d) { el.innerHTML = ''; return; }
+
+  const revenue = pv('totalRevenue');
+  if (!revenue) { el.innerHTML = ''; return; }
+
+  const threshold = getSmallBizThreshold(d.cd);
+  const isSmall = revenue <= threshold;
+  const thresholdLabel = (threshold / 100000000).toFixed(0) + '억원';
+  const revenueLabel = (revenue / 100000000).toFixed(1) + '억';
+  const sizeLabel = isSmall ? '소기업' : '중기업';
+  const cls = isSmall ? 'small' : 'medium';
+
+  el.innerHTML = '<span class="size-detect ' + cls + '">매출 ' + revenueLabel + ' → <strong>' + sizeLabel + '</strong> (기준: ' + thresholdLabel + ' 이하)</span>';
+
+  // 중소기업특별세액감면 감면비율 자동 설정
+  autoSetSmeRate(d);
+}
+
+// 중소기업특별세액감면 감면비율 자동 설정
+function autoSetSmeRate(d) {
+  if (!d) return;
+  const smeRateEl = document.getElementById('smeRate');
+  if (!smeRateEl) return; // 감면 항목이 없으면 skip
+
+  const revenue = pv('totalRevenue');
+  const threshold = getSmallBizThreshold(d.cd);
+  const isSmall = revenue > 0 ? revenue <= threshold : true; // 매출 미입력 시 소기업 기본
+
+  // 도소매업/의료업 여부
+  const isRetailMedical = (d.cd === 'G' || d.cd === 'Q');
+
+  // 감면율 결정 (조특법 §7)
+  let rate;
+  if (isSmall) {
+    rate = isRetailMedical ? 15 : 30; // 소기업: 도소매·의료 15%, 기타 30%
+  } else {
+    rate = isRetailMedical ? 5 : 15;  // 중기업: 도소매·의료 5%, 기타 15%
+  }
+  // 수도권은 비수도권 대비 감면율 차이 (수동 조정 가능하도록 안내만)
+
+  smeRateEl.value = rate;
+}
+
+// 업종코드 이벤트 바인딩
+document.addEventListener('DOMContentLoaded', function() {
+  const codeInput = document.getElementById('industryCode');
+  if (codeInput) {
+    codeInput.addEventListener('input', onIndustryCodeInput);
+  }
+  // 매출액 변경 시 소기업/중기업 재판정
+  const revInput = document.getElementById('totalRevenue');
+  if (revInput) {
+    revInput.addEventListener('blur', updateSizeAutoDetect);
+  }
+});
 
 // 동적으로 추가된 input에 콤마 포맷 재바인딩
 function rebindCommaFormat() {
