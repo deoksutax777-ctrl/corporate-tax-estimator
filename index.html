@@ -388,10 +388,12 @@ function removeCustomCredit(btn) {
 // 소기업 매출액 기준 (중소기업기본법 시행령 별표3)
 function getSmallBizThreshold(cd) {
   if (cd === 'C') return 12000000000;          // 제조업: 120억
-  if ('ABD E'.includes(cd)) return 8000000000; // 농림어업,광업,전기가스,수도하수: 80억
+  if ('ABDE'.includes(cd)) return 8000000000;  // 농림어업,광업,전기가스,수도하수: 80억
   if (cd === 'F' || cd === 'H') return 8000000000; // 건설업, 운수창고: 80억
   if (cd === 'G') return 5000000000;           // 도소매업: 50억
-  return 5000000000;                           // 기타: 50억
+  if (cd === 'J' || cd === 'K') return 5000000000; // 정보통신,금융보험: 50억
+  if ('IMNOPQRS'.includes(cd)) return 3000000000;  // 숙박음식,부동산,전문과학기술,사업시설관리,교육,보건,예술스포츠,수리개인서비스: 30억
+  return 3000000000;                           // 기타: 30억
 }
 
 // 업종코드 입력 이벤트
@@ -469,7 +471,7 @@ function autoSetSmeRate(d) {
   const isCapital = (region === 'capital_non_dense' || region === 'dense');
   const isRetailMedical = (d.cd === 'G' || d.cd === 'Q');
 
-  // 감면율 결정 (조특법 §7)
+  // 감면율 결정 (조특법 §7 — 수도권/비수도권만 구분, 과밀억제권역 별도 구분 없음)
   let rate;
   if (isSmall) {
     if (isCapital) {
