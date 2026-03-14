@@ -471,13 +471,11 @@ function autoSetSmeRate(d) {
   const isCapital = (region === 'capital_non_dense' || region === 'dense');
   const isRetailMedical = (d.cd === 'G' || d.cd === 'Q');
 
-  // 감면율 결정 (조특법 §7)
+  // 감면율 결정 (조특법 §7 — 수도권/비수도권만 구분, 과밀억제권역 별도 구분 없음)
   let rate;
   if (isSmall) {
-    if (region === 'dense') {
-      rate = isRetailMedical ? 5 : 10;   // 소기업 과밀억제권역
-    } else if (region === 'capital_non_dense') {
-      rate = isRetailMedical ? 10 : 20;  // 소기업 수도권(과밀억제 외)
+    if (isCapital) {
+      rate = isRetailMedical ? 10 : 20;  // 소기업 수도권
     } else {
       rate = isRetailMedical ? 15 : 30;  // 소기업 비수도권
     }
