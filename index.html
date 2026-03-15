@@ -255,11 +255,14 @@ table.result tr.section-header td { background: #333F4F; color: #fff; font-weigh
       <div class="form-group"><label>중간예납세액</label><input type="text" id="interimTax" value="0"></div>
     </div>
 
-    <h3 style="font-size:0.95em; margin:16px 0 8px; color:#555;">추가경비 시나리오</h3>
+    <h3 style="font-size:0.95em; margin:16px 0 8px; color:#555;">추가경비 / 기말재고자산 시나리오</h3>
     <div class="scenario-grid">
       <div><label>추가경비 1</label><input type="text" id="addExp1" value="0"></div>
       <div><label>추가경비 2</label><input type="text" id="addExp2" value="0"></div>
       <div><label>추가경비 3</label><input type="text" id="addExp3" value="0"></div>
+      <div><label>기말재고자산 1</label><input type="text" id="invAdj1" value="0"></div>
+      <div><label>기말재고자산 2</label><input type="text" id="invAdj2" value="0"></div>
+      <div><label>기말재고자산 3</label><input type="text" id="invAdj3" value="0"></div>
     </div>
   </div>
 
@@ -1007,13 +1010,15 @@ function calculate() {
   // 기타 직접 추가 세액공제
   const customCredits = credits.customCredits;
 
-  // 추가경비
+  // 추가경비 & 기말재고자산
   const addExps = [0, pv('addExp1'), pv('addExp2'), pv('addExp3')];
+  const invAdjs = [0, pv('invAdj1'), pv('invAdj2'), pv('invAdj3')];
 
   // 시나리오별 계산
   const scenarios = addExps.map((addExp, idx) => {
+    const invAdj = invAdjs[idx];  // 기말재고자산 설정액 (매출원가 감소 → 이익 증가)
     const revenue = totalRevenue;
-    const grossProfit = revenue - totalCost;
+    const grossProfit = revenue - totalCost + invAdj;
     const opIncome = grossProfit - sga - addExp;
     const netIncome = opIncome + nonOpIncome - nonOpExpense;
     const taxableIncome = netIncome + taxAdjPlus - taxAdjMinus;
@@ -1078,8 +1083,8 @@ function calculate() {
     const netMargin = revenue > 0 ? netIncome / revenue : 0;
 
     return {
-      label: idx === 0 ? '기본' : '추가경비 ' + idx,
-      addExp,
+      label: idx === 0 ? '기본' : 'Case ' + idx,
+      addExp, invAdj,
       taxAdjPlus, taxAdjMinus,
       revenue, grossProfit, opIncome, netIncome, taxableIncome,
       cfLoss, taxBase,
@@ -1088,13 +1093,13 @@ function calculate() {
     };
   });
 
-  // 활성 시나리오 (추가경비가 0이 아닌 것 포함)
-  const active = scenarios.filter((s, i) => i === 0 || s.addExp !== 0);
+  // 활성 시나리오 (추가경비 또는 기말재고자산이 0이 아닌 것 포함)
+  const active = scenarios.filter((s, i) => i === 0 || s.addExp !== 0 || s.invAdj !== 0);
 
   lastCalcData = {
     companyName,
     scenarios: active,
-    inputs: { totalRevenue, totalCost, sga, nonOpIncome, nonOpExpense, taxAdjPlus, taxAdjMinus, taxAdj, carryForwardLoss, smeRate, rdAmount, empCredit, socialCredit, interimTax, startupSmeActive, startupSmeRate, startupSmeIncome, customCredits }
+    inputs: { totalRevenue, totalCost, sga, nonOpIncome, nonOpExpense, taxAdjPlus, taxAdjMinus, taxAdj, carryForwardLoss, smeRate, rdAmount, empCredit, socialCredit, interimTax, startupSmeActive, startupSmeRate, startupSmeIncome, customCredits, invAdjs }
   };
 
   renderResult(companyName, active);
@@ -1110,7 +1115,10 @@ function renderResult(companyName, scenarios) {
 
   let html = '<thead><tr><th style="width:200px">구분</th>';
   for (const s of scenarios) {
-    html += '<th>' + s.label + (s.addExp ? '<br><small>(추가경비 ' + fmt(s.addExp) + ')</small>' : '') + '</th>';
+    let sub = '';
+    if (s.addExp) sub += '경비 ' + fmt(s.addExp);
+    if (s.invAdj) sub += (sub ? ' / ' : '') + '재고 ' + fmt(s.invAdj);
+    html += '<th>' + s.label + (sub ? '<br><small>(' + sub + ')</small>' : '') + '</th>';
   }
   html += '</tr></thead><tbody>';
 
@@ -1123,6 +1131,7 @@ function renderResult(companyName, scenarios) {
   // 손익 섹션
   html += '<tr class="section-header"><td colspan="' + (colCount + 1) + '">손익계산</td></tr>';
   html += row('매출액', 'revenue', 'row-blue');
+  html += row('(-) 매출원가 조정 (기말재고자산)', 'invAdj', 'row-green');
   html += row('매출총이익', 'grossProfit', 'row-blue');
   html += row('영업이익', 'opIncome', 'row-blue');
   html += row('당기순이익', 'netIncome', 'row-orange');
@@ -1299,7 +1308,7 @@ async function exportXlsx() {
   hB.alignment = {horizontal:'center',vertical:'center'}; hB.border = {left:wBdr,right:wBdr};
 
   // Row 8: sub-headers (B~E + F비고)
-  const subLabels = ['기준','추가경비 1','추가경비 2','추가경비 3'];
+  const subLabels = ['기준','Case 1','Case 2','Case 3'];
   for (let col = dataCol1; col <= lastDataCol; col++) {
     const idx = col - dataCol1;
     const c = ws.getCell(8, col);
@@ -1361,33 +1370,35 @@ async function exportXlsx() {
   // Row 9: 총매출
   wr(9,  '총매출', scenarios.map(()=>inp.totalRevenue), {bt:'double',bb:'thin'});
   // Row 10: 매출원가
-  wr(10, '매출원가', scenarios.map(()=>inp.totalCost), {bt:'thin',bb:'thin'});
-  // Row 11: 매출총이익
-  wr(11, '매출총이익', sv('grossProfit'), {b:true, f:blueFill, bt:'thin',bb:'thin'});
-  // Row 12: 판관비
-  wr(12, '판관비', scenarios.map(()=>inp.sga), {bt:'thin',bb:'hair'});
-  // Row 13: 추가경비 (green, red font)
-  wr(13, '추가경비', sv('addExp'), {b:true, redFont:true, f:greenFill, bt:'hair',bb:'thin'});
-  // Row 14: 영업이익
-  wr(14, '영업이익', sv('opIncome'), {b:true, f:blueFill, bt:'thin'});
-  // Row 15-16: 영업외
-  wr(15, '영업외수익', scenarios.map(()=>inp.nonOpIncome),  {bt:'double',bb:'hair'});
-  wr(16, '영업외비용', scenarios.map(()=>inp.nonOpExpense), {bt:'hair',bb:'thin'});
-  // Row 17: 당기순이익 (orange, bottom double)
-  wr(17, '당기순이익', sv('netIncome'), {b:true, f:orangeFill, bt:'thin',bb:'double'});
-  // Row 18-19: 세무조정 (yellow)
-  wr(18, '(+) 익금산입·손금불산입', scenarios.map(()=>inp.taxAdjPlus),  {bv:true, f:yellowFill, bb:'hair'});
-  wr(19, '(-) 손금산입·익금불산입', scenarios.map(()=>inp.taxAdjMinus), {bv:true, f:yellowFill, bt:'hair',bb:'thin'});
-  // Row 20: 차가감소득금액 (orange)
-  wr(20, '차가감소득금액', sv('taxableIncome'), {b:true, f:orangeFill, bt:'thin'});
-  // Row 21: 이월결손금 (yellow)
-  wr(21, '(-) 이월결손금', sv('cfLoss'), {f:yellowFill, bt:'hair',bb:'thin'});
-  // Row 22: 과세표준 (orange)
-  wr(22, '과세표준', sv('taxBase'), {b:true, f:orangeFill, bt:'thin',bb:'thin'});
-  // Row 23: 산출세액 (blue, top medium)
-  wr(23, '산출세액', sv('computedTax'), {b:true, f:blueFill, bt:'medium'});
-  // Row 24+: 공제/감면 항목 (동적 행 번호)
-  let exRow = 24;
+  wr(10, '매출원가', scenarios.map(()=>inp.totalCost), {bt:'thin',bb:'hair'});
+  // Row 11: 기말재고자산 (green, blue font — 이익 증가 방향)
+  wr(11, '(-) 매출원가 조정 (기말재고자산)', sv('invAdj'), {b:true, f:greenFill, bt:'hair',bb:'thin', bigo:'재고↑ → 원가↓ → 이익↑'});
+  // Row 12: 매출총이익
+  wr(12, '매출총이익', sv('grossProfit'), {b:true, f:blueFill, bt:'thin',bb:'thin'});
+  // Row 13: 판관비
+  wr(13, '판관비', scenarios.map(()=>inp.sga), {bt:'thin',bb:'hair'});
+  // Row 14: 추가경비 (green, red font)
+  wr(14, '추가경비', sv('addExp'), {b:true, redFont:true, f:greenFill, bt:'hair',bb:'thin'});
+  // Row 15: 영업이익
+  wr(15, '영업이익', sv('opIncome'), {b:true, f:blueFill, bt:'thin'});
+  // Row 16-17: 영업외
+  wr(16, '영업외수익', scenarios.map(()=>inp.nonOpIncome),  {bt:'double',bb:'hair'});
+  wr(17, '영업외비용', scenarios.map(()=>inp.nonOpExpense), {bt:'hair',bb:'thin'});
+  // Row 18: 당기순이익 (orange, bottom double)
+  wr(18, '당기순이익', sv('netIncome'), {b:true, f:orangeFill, bt:'thin',bb:'double'});
+  // Row 19-20: 세무조정 (yellow)
+  wr(19, '(+) 익금산입·손금불산입', scenarios.map(()=>inp.taxAdjPlus),  {bv:true, f:yellowFill, bb:'hair'});
+  wr(20, '(-) 손금산입·익금불산입', scenarios.map(()=>inp.taxAdjMinus), {bv:true, f:yellowFill, bt:'hair',bb:'thin'});
+  // Row 21: 차가감소득금액 (orange)
+  wr(21, '차가감소득금액', sv('taxableIncome'), {b:true, f:orangeFill, bt:'thin'});
+  // Row 22: 이월결손금 (yellow)
+  wr(22, '(-) 이월결손금', sv('cfLoss'), {f:yellowFill, bt:'hair',bb:'thin'});
+  // Row 23: 과세표준 (orange)
+  wr(23, '과세표준', sv('taxBase'), {b:true, f:orangeFill, bt:'thin',bb:'thin'});
+  // Row 24: 산출세액 (blue, top medium)
+  wr(24, '산출세액', sv('computedTax'), {b:true, f:blueFill, bt:'medium'});
+  // Row 25+: 공제/감면 항목 (동적 행 번호)
+  let exRow = 25;
   if (inp.startupSmeActive) {
     wr(exRow, '창업중소기업세액감면', sv('startupSmeDeduction'), {bt:'medium',bb:'hair', bigo:'감면율 '+Math.round(inp.startupSmeRate*100)+'%'});
     exRow++;
