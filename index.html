@@ -182,6 +182,7 @@ table.result tr.section-header td { background: #333F4F; color: #fff; font-weigh
         <label><input type="radio" name="regionType" value="capital_non_dense"> 수도권 (과밀억제 외)</label>
         <label><input type="radio" name="regionType" value="dense"> 과밀억제권역</label>
       </div>
+      <div style="margin-top:4px; margin-left:10px; font-size:0.78em; color:#888;">※ 과밀억제권역: 중특감은 수도권과 동일 적용 / 창업감면은 별도 감면율 적용</div>
     </div>
     <div id="reductionSummary" style="margin-top:8px; font-size:0.85em; color:#1a56db; font-weight:600;"></div>
   </div>
@@ -931,7 +932,76 @@ function extractPlItemsSm(rows, fmtType) {
 /**
  * parseIncomeStatement: 추출된 항목을 입력 필드에 매핑
  */
+function parseMetaInfo(data) {
+  let companyName = '';
+  let taxYear = 0;
+
+  // 상단 12행 내에서 회사명, 과세연도 탐색
+  for (let i = 0; i < Math.min(data.length, 12); i++) {
+    const row = data[i] || [];
+    for (let c = 0; c < row.length; c++) {
+      const s = String(row[c] || '').trim();
+      if (!s) continue;
+      const clean = s.replace(/\s/g, '');
+
+      // 회사명 추출: "회사명 : OOO" 또는 "회사명" 라벨 → 옆 셀
+      if (!companyName) {
+        if (clean.includes('회사명') || clean.includes('법인명') || clean.includes('상호')) {
+          // "회사명 : OOO" 또는 "회사명:OOO" 형태
+          const colonMatch = s.match(/(?:회사명|법인명|상호)\s*[:：]\s*(.+)/);
+          if (colonMatch && colonMatch[1].trim()) {
+            companyName = colonMatch[1].trim();
+          } else {
+            // 옆 셀에서 추출
+            for (let nc = c + 1; nc < row.length; nc++) {
+              const nv = String(row[nc] || '').trim();
+              if (nv && nv !== 'nan' && nv !== 'NaN' && isNaN(+nv.replace(/,/g, ''))) {
+                companyName = nv;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      // 과세연도 추출
+      if (!taxYear) {
+        // "2025년 1월 1일 ~ 2025년 12월 31일" 또는 "2025년01월01일~2025년12월31일"
+        const yearMatch = clean.match(/(\d{4})년.*?(\d{1,2})월.*?(\d{1,2})일/);
+        if (yearMatch) {
+          taxYear = Number(yearMatch[1]);
+        }
+        // "제XX기" + "(당)기" 패턴에서 연도 추출 — 같은 행이나 인접 셀에 연도 있을 수 있음
+        if (!taxYear && clean.match(/제\d+기/)) {
+          for (let nc = 0; nc < row.length; nc++) {
+            const nv = String(row[nc] || '').trim();
+            const ym = nv.match(/(\d{4})\s*[\.년]/);
+            if (ym) { taxYear = Number(ym[1]); break; }
+          }
+        }
+        // "2025.01.01 ~ 2025.12.31" 형태
+        if (!taxYear) {
+          const dotMatch = clean.match(/(\d{4})\.\d{1,2}\.\d{1,2}/);
+          if (dotMatch) taxYear = Number(dotMatch[1]);
+        }
+      }
+    }
+  }
+
+  // 회사명 반영
+  if (companyName) {
+    document.getElementById('companyName').value = companyName;
+    console.log('[메타] 회사명:', companyName);
+  }
+  // 귀속연도 반영
+  if (taxYear >= 2000 && taxYear <= 2099) {
+    document.getElementById('taxYear').value = taxYear;
+    console.log('[메타] 귀속연도:', taxYear);
+  }
+}
+
 function parseIncomeStatement(data) {
+  parseMetaInfo(data);
   const items = extractPlItems(data);
 
   // 매핑: 항목명 키워드 → 입력 필드 ID, 매출 세부항목은 개별금액(curr), 합계항목은 합계금액
