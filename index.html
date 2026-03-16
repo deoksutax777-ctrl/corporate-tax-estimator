@@ -422,12 +422,91 @@ const ELIG_NOTE = {
   S: '수리업, 이용·미용업 해당 (협회·단체 제외)'
 };
 
+// ── 중분류(mc) 기준 세부 판정: △인 대분류에서 중분류로 O/X 재판정 ──
+// 키: "대분류코드_mc번호", 값: { sme: 'O'|'X', startup: 'O'|'X', note: '' }
+const MID_ELIG = {
+  // D: 전기, 가스, 증기 및 공기 조절 공급업
+  'D_40': { sme:'△', startup:'X', note:'신재생에너지 발전사업(소분류)만 중특감 해당 — 세분류 확인 필요' },
+
+  // G: 도매 및 소매업 (중특감은 대분류 O이므로 창업감면만 판정)
+  'G_50': { sme:'O', startup:'X', note:'자동차판매업은 창업감면 대상 아님' },
+  'G_51': { sme:'O', startup:'△', note:'창업감면은 통신판매업 등 일부 도매업만 해당 — 세분류 확인 필요' },
+  'G_52': { sme:'O', startup:'△', note:'창업감면은 통신판매업 등 일부 소매업만 해당 — 세분류 확인 필요' },
+  'G_74': { sme:'O', startup:'△', note:'창업감면은 통신판매업 등 일부만 해당 — 세분류 확인 필요' },
+
+  // H: 운수 및 창고업
+  'H_60': { sme:'O', startup:'O', note:'육상 여객운송업 해당' },
+  'H_61': { sme:'X', startup:'X', note:'수상 운송업은 감면 대상 아님' },
+  'H_62': { sme:'X', startup:'X', note:'항공 운송업은 감면 대상 아님' },
+  'H_63': { sme:'O', startup:'O', note:'창고·운송관련 서비스업 해당' },
+  'H_64': { sme:'O', startup:'O', note:'육상 여객운송·파이프라인 운송업 해당' },
+  'H_74': { sme:'O', startup:'O', note:'창고·운송관련 서비스업 해당' },
+
+  // I: 숙박 및 음식점업 (mc=55만 존재, 음식점업은 별도 대분류 I에 포함)
+  'I_55': { sme:'△', startup:'O', note:'중특감은 관광숙박업(세분류)만 해당, 창업감면은 음식점업 포함(주점업 제외)' },
+
+  // L: 부동산업
+  'L_70': { sme:'△', startup:'X', note:'중특감은 주택임대관리업(세분류)만 해당 — 세분류 확인 필요' },
+  'L_92': { sme:'△', startup:'X', note:'중특감은 주택임대관리업(세분류)만 해당 — 세분류 확인 필요' },
+
+  // N: 사업시설관리, 사업지원 및 임대서비스업
+  'N_14': { sme:'X', startup:'X', note:'임대업(부동산 제외)은 감면 대상 아님' },
+  'N_52': { sme:'O', startup:'O', note:'사업지원 서비스업(인력공급, 콜센터, 경비·청소 등) 해당' },
+  'N_63': { sme:'X', startup:'X', note:'임대업(부동산 제외)은 감면 대상 아님' },
+  'N_65': { sme:'O', startup:'O', note:'사업지원 서비스업 해당' },
+  'N_70': { sme:'X', startup:'X', note:'임대업(부동산 제외)은 감면 대상 아님' },
+  'N_71': { sme:'X', startup:'X', note:'임대업(부동산 제외)은 감면 대상 아님' },
+  'N_74': { sme:'O', startup:'O', note:'사업지원 서비스업 해당' },
+  'N_90': { sme:'O', startup:'O', note:'사업시설관리·조경 서비스업 해당' },
+  'N_93': { sme:'X', startup:'X', note:'임대업(부동산 제외)은 감면 대상 아님' },
+
+  // P: 교육서비스업
+  'P_55': { sme:'△', startup:'△', note:'직업기술학원·직업훈련시설만 해당 — 세분류 확인 필요 (입시학원 제외)' },
+  'P_74': { sme:'△', startup:'△', note:'직업기술학원·직업훈련시설만 해당 — 세분류 확인 필요' },
+  'P_80': { sme:'△', startup:'△', note:'직업기술학원·직업훈련시설만 해당 — 세분류 확인 필요' },
+  'P_85': { sme:'△', startup:'△', note:'직업기술학원·직업훈련시설만 해당 — 세분류 확인 필요' },
+  'P_92': { sme:'△', startup:'△', note:'직업기술학원·직업훈련시설만 해당 — 세분류 확인 필요' },
+  'P_93': { sme:'△', startup:'△', note:'직업기술학원·직업훈련시설만 해당 — 세분류 확인 필요' },
+
+  // Q: 보건업 및 사회복지 서비스업
+  'Q_85': { sme:'O', startup:'O', note:'보건업(의원, 병원 등) 해당' },
+  'Q_86': { sme:'O', startup:'O', note:'보건업(의원, 병원 등) 해당' },
+  'Q_87': { sme:'O', startup:'O', note:'사회복지 서비스업 해당' },
+  'Q_93': { sme:'O', startup:'O', note:'사회복지 서비스업 해당' },
+  'Q_95': { sme:'O', startup:'O', note:'사회복지 서비스업 해당' },
+
+  // R: 예술, 스포츠 및 여가관련 서비스업
+  'R_51': { sme:'△', startup:'△', note:'스포츠·오락 서비스업 일부 해당 (사행시설 제외) — 세분류 확인 필요' },
+  'R_52': { sme:'△', startup:'△', note:'스포츠·오락 서비스업 일부 해당 (사행시설 제외) — 세분류 확인 필요' },
+  'R_80': { sme:'△', startup:'△', note:'스포츠·오락 서비스업 일부 해당 (사행시설 제외) — 세분류 확인 필요' },
+  'R_92': { sme:'O', startup:'O', note:'창작·예술·여가관련 서비스업 해당' },
+
+  // S: 협회 및 단체, 수리 및 기타 개인 서비스업
+  'S_70': { sme:'O', startup:'O', note:'기타 개인 서비스업(이용·미용업 등) 해당' },
+  'S_72': { sme:'O', startup:'O', note:'개인·소비용품 수리업 해당' },
+  'S_74': { sme:'O', startup:'O', note:'기타 개인 서비스업 해당' },
+  'S_92': { sme:'O', startup:'O', note:'개인·소비용품 수리업 해당' },
+  'S_93': { sme:'O', startup:'O', note:'기타 개인 서비스업 해당' },
+  'S_94': { sme:'X', startup:'X', note:'협회·단체는 감면 대상 아님' },
+  'S_95': { sme:'O', startup:'O', note:'기타 개인 서비스업 해당' },
+};
+
 function checkEligibility(d) {
   if (!d) return null;
   const cd = d.cd;
-  const sme = SME7_ELIG[cd] || 'X';
-  const startup = STARTUP_ELIG[cd] || 'X';
-  const note = ELIG_NOTE[cd] || '';
+  let sme = SME7_ELIG[cd] || 'X';
+  let startup = STARTUP_ELIG[cd] || 'X';
+  let note = ELIG_NOTE[cd] || '';
+
+  // △인 경우 중분류(mc)로 재판정
+  const midKey = cd + '_' + d.mc;
+  const midInfo = MID_ELIG[midKey];
+  if (midInfo) {
+    if (sme === '△') sme = midInfo.sme;
+    if (startup === '△') startup = midInfo.startup;
+    note = midInfo.note;
+  }
+
   return { sme, startup, note, sectionName: d.cn };
 }
 
@@ -442,10 +521,9 @@ function updateEligibilityWarning(d) {
   const msgs = [];
   const icons = { 'O': '✅', 'X': '❌', '△': '⚠️' };
 
-  msgs.push(icons[result.sme] + ' 중특감(§7): ' +
-    (result.sme === 'O' ? '대상 업종' : result.sme === 'X' ? '대상 아님' : '세부 업종 확인 필요'));
-  msgs.push(icons[result.startup] + ' 창업감면(§6): ' +
-    (result.startup === 'O' ? '대상 업종' : result.startup === 'X' ? '대상 아님' : '세부 업종 확인 필요'));
+  const eligText = { 'O': '대상 업종', 'X': '대상 아님', '△': '세분류 확인 필요' };
+  msgs.push(icons[result.sme] + ' 중특감(§7): ' + eligText[result.sme]);
+  msgs.push(icons[result.startup] + ' 창업감면(§6): ' + eligText[result.startup]);
   if (result.note) msgs.push('💡 ' + result.note);
 
   // 스타일 결정
