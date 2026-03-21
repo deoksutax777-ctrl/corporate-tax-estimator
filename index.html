@@ -98,15 +98,22 @@ table.result tr.row-yellow td { background: #FFF2CC; }
 table.result tr.row-green td { background: #E2EFDA; color: #FF0000; font-weight: 700; }
 table.result tr.row-bright td { background: #FFFF00; font-weight: 700; }
 table.result tr.section-header td { background: #333F4F; color: #fff; font-weight: 700; text-align: center; }
+table.result td[contenteditable="true"] { background: #fafafa !important; cursor: text; min-width: 120px; }
+table.result td[contenteditable="true"]:focus { outline: 2px solid #1a56db; background: #fff !important; }
 .negative { color: #dc2626; }
 
 .info-box { background: #fffbeb; border: 1px solid #fbbf24; border-radius: 6px; padding: 10px 14px; margin-top: 12px; font-size: 0.85em; }
 
 @media print {
+  @page { size: landscape; margin: 10mm; }
   body { background: #fff; padding: 0; }
-  .input-section, .upload-area, .btn-calc { display: none; }
-  .result-section { box-shadow: none; padding: 0; }
-  table.result { font-size: 0.8em; }
+  .input-section, .upload-area, .btn-calc, .info-box { display: none; }
+  .result-section { box-shadow: none; padding: 0; margin: 0; }
+  .container { max-width: 100%; }
+  table.result { font-size: 0.75em; width: 100%; }
+  table.result th:first-child, table.result td:first-child { width: 28%; }
+  table.result th:last-child, table.result td:last-child { width: 20%; }
+  table.result td[contenteditable="true"] { border: 1px solid #ccc !important; min-width: 0; }
   table.result th, table.result td,
   table.result tr.row-blue td,
   table.result tr.row-orange td,
@@ -1335,18 +1342,20 @@ function renderResult(companyName, scenarios) {
     if (s.invAdj) sub += (sub ? ' / ' : '') + '재고 ' + fmt(s.invAdj);
     html += '<th>' + s.label + (sub ? '<br><small>(' + sub + ')</small>' : '') + '</th>';
   }
+  html += '<th style="width:200px">비고</th>';
   html += '</tr></thead><tbody>';
 
-  function row(label, key, cls) {
+  function row(label, key, cls, bigo) {
     let r = '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + label + '</td>';
     for (const s of scenarios) r += '<td>' + fmt(s[key]) + '</td>';
+    r += '<td contenteditable="true" style="text-align:left;font-weight:normal;font-size:0.85em;">' + (bigo || '') + '</td>';
     return r + '</tr>';
   }
 
   // 손익 섹션
-  html += '<tr class="section-header"><td colspan="' + (colCount + 1) + '">손익계산</td></tr>';
+  html += '<tr class="section-header"><td colspan="' + (colCount + 2) + '">손익계산</td></tr>';
   html += row('매출액', 'revenue', 'row-blue');
-  html += row('(-) 매출원가 조정 (기말재고자산)', 'invAdj', 'row-green');
+  html += row('(-) 매출원가 조정 (기말재고자산)', 'invAdj', 'row-green', '재고↑ → 원가↓ → 이익↑');
   html += row('매출총이익', 'grossProfit', 'row-blue');
   html += row('영업이익', 'opIncome', 'row-blue');
   html += row('당기순이익', 'netIncome', 'row-orange');
@@ -1357,14 +1366,14 @@ function renderResult(companyName, scenarios) {
   html += row('과세표준', 'taxBase', 'row-orange');
 
   // 세액 섹션
-  html += '<tr class="section-header"><td colspan="' + (colCount + 1) + '">세액 계산</td></tr>';
+  html += '<tr class="section-header"><td colspan="' + (colCount + 2) + '">세액 계산</td></tr>';
   html += row('산출세액', 'computedTax', 'row-blue');
   // 창업중소기업세액감면 (활성화된 경우만 표시)
   if (scenarios[0].startupSmeDeduction !== undefined && lastCalcData && lastCalcData.inputs.startupSmeActive) {
-    html += row('(-) 창업중소기업세액감면', 'startupSmeDeduction');
+    html += row('(-) 창업중소기업세액감면', 'startupSmeDeduction', '', '감면율 ' + Math.round(lastCalcData.inputs.startupSmeRate * 100) + '%');
   }
-  html += row('(-) 중소기업특별세액감면', 'smeDeduction');
-  html += row('(-) 연구인력개발비세액공제', 'rdCredit');
+  html += row('(-) 중소기업특별세액감면', 'smeDeduction', '', '서비스업 ' + Math.round(lastCalcData.inputs.smeRate * 100) + '%');
+  html += row('(-) 연구인력개발비세액공제', 'rdCredit', '', '급여+4대보험료 반영');
   html += row('(-) 고용증대세액공제', 'empDeduction');
   html += row('(-) 사회보험료세액공제', 'socialCredit');
   // 기타 직접 추가 세액공제
@@ -1372,6 +1381,7 @@ function renderResult(companyName, scenarios) {
     for (const cc of lastCalcData.inputs.customCredits) {
       html += '<tr><td>(-) ' + cc.name + '</td>';
       for (const s of scenarios) html += '<td>' + fmt(cc.amount) + '</td>';
+      html += '<td contenteditable="true" style="text-align:left;font-weight:normal;font-size:0.85em;"></td>';
       html += '</tr>';
     }
   }
@@ -1382,12 +1392,14 @@ function renderResult(companyName, scenarios) {
   html += row('총 납부할 세액', 'totalTax', 'row-bright');
 
   // 참고
-  html += '<tr class="section-header"><td colspan="' + (colCount + 1) + '">참고</td></tr>';
+  html += '<tr class="section-header"><td colspan="' + (colCount + 2) + '">참고</td></tr>';
   html += '<tr><td>최저한세</td>';
   for (const s of scenarios) html += '<td>' + fmt(s.minTax) + '</td>';
+  html += '<td contenteditable="true" style="text-align:left;font-weight:normal;font-size:0.85em;">법인세 결과와 금액이 같아야 함</td>';
   html += '</tr>';
   html += '<tr><td>당기순이익율</td>';
   for (const s of scenarios) html += '<td>' + (s.netMargin * 100).toFixed(2) + '%</td>';
+  html += '<td contenteditable="true" style="text-align:left;font-weight:normal;font-size:0.85em;"></td>';
   html += '</tr>';
 
   html += '</tbody>';
