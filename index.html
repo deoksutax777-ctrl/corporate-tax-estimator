@@ -1282,15 +1282,19 @@ function calculate() {
     // 연구인력개발비세액공제
     const rdCredit = Math.max(0, Math.min(rdAmount * 0.25, computedTax - startupSmeDeduction - smeDeduction));
 
-    // 고용증대세액공제
-    const empLimit = (computedTax - taxBase * 0.07) - startupSmeDeduction - smeDeduction - socialCredit;
+    // 사회보험료세액공제 (최저한세 적용대상, 농어촌특별세 비적용)
+    const socialLimit = (computedTax - minTax) - startupSmeDeduction - smeDeduction;
+    const socialDeduction = Math.max(0, Math.min(socialCredit, socialLimit));
+
+    // 고용증대세액공제 (최저한세 적용대상, 농어촌특별세 적용)
+    const empLimit = (computedTax - minTax) - startupSmeDeduction - smeDeduction - socialDeduction;
     const empDeduction = Math.max(0, Math.min(empCredit, empLimit));
 
     // 기타 직접 추가 세액공제 합계
     const customCreditTotal = customCredits.reduce((sum, c) => sum + c.amount, 0);
 
     // 법인세
-    const corpTax = computedTax - startupSmeDeduction - smeDeduction - rdCredit - empDeduction - socialCredit - customCreditTotal - interimTax;
+    const corpTax = computedTax - startupSmeDeduction - smeDeduction - rdCredit - empDeduction - socialDeduction - customCreditTotal - interimTax;
 
     // 지방소득세
     const localTax = computedTax * 0.1;
@@ -1311,7 +1315,7 @@ function calculate() {
       revenue, grossProfit, opIncome, netIncome, taxableIncome,
       cfLoss, taxBase,
       computedTax, minTax, startupSmeDeduction, smeDeduction, smeLimit, rdCredit, empDeduction,
-      socialCredit, customCreditTotal, interimTax, corpTax, localTax, farmTax, totalTax, netMargin
+      socialCredit, socialDeduction, customCreditTotal, interimTax, corpTax, localTax, farmTax, totalTax, netMargin
     };
   });
 
@@ -1375,7 +1379,7 @@ function renderResult(companyName, scenarios) {
   html += row('(-) 중소기업특별세액감면', 'smeDeduction', '', '서비스업 ' + Math.round(lastCalcData.inputs.smeRate * 100) + '%');
   html += row('(-) 연구인력개발비세액공제', 'rdCredit', '', '급여+4대보험료 반영');
   html += row('(-) 고용증대세액공제', 'empDeduction');
-  html += row('(-) 사회보험료세액공제', 'socialCredit');
+  html += row('(-) 사회보험료세액공제', 'socialDeduction');
   // 기타 직접 추가 세액공제
   if (lastCalcData && lastCalcData.inputs.customCredits && lastCalcData.inputs.customCredits.length > 0) {
     for (const cc of lastCalcData.inputs.customCredits) {
@@ -1636,7 +1640,7 @@ async function exportXlsx() {
   exRow++;
   wr(exRow, '고용증대세액공제',       sv('empDeduction'),                       {bt:'hair',bb:'hair'});
   exRow++;
-  wr(exRow, '사회보험료세액공제',     scenarios.map(()=>inp.socialCredit),       {bt:'hair',bb:'hair'});
+  wr(exRow, '사회보험료세액공제',     sv('socialDeduction'),                    {bt:'hair',bb:'hair'});
   exRow++;
   // 기타 직접 추가 세액공제
   if (inp.customCredits && inp.customCredits.length > 0) {
