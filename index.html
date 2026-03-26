@@ -1611,12 +1611,17 @@ async function exportXlsx() {
   hBigo.value = '비고'; hBigo.font = whiteFont; hBigo.fill = darkFill;
   hBigo.alignment = {horizontal:'center',vertical:'center'}; hBigo.border = {top:wBdr, left:wBdr};
 
-  // === Data row writer ===
+  // === Data row writer (수식 지원) ===
   function sv(field) { return scenarios.map(s => s[field]); }
   const inp = inputs;
 
+  // 컬럼번호 → 엑셀 알파벳 (2='B', 3='C' 등)
+  function colL(n) { return String.fromCharCode(64 + n); }
+  // 시나리오별 수식 배열 생성 헬퍼: sf(c => `${c}9-${c}10`) → ['B9-B10','C9-C10',...]
+  function sf(fn) { return scenarios.map((_, i) => fn(colL(dataCol1 + i))); }
+
   // borderSpec: {t,b} for top/bottom border styles of row
-  // fillSpec: fill object for the row
+  // o.formulas: 수식 배열 (시나리오별). 제공 시 값 대신 수식+결과값으로 기록
   function wr(r, label, vals, o={}) {
     const row = ws.getRow(r);
     row.height = 31.2;
@@ -1629,13 +1634,20 @@ async function exportXlsx() {
     lc.fill = o.f || whiteFill;
     lc.border = mkBdr(o.bt||null, o.bb||null, null, 'thin');
 
-    // Data columns B~E (fill all, even empty beyond scenario count)
+    // Data columns B~E
     for (let col = dataCol1; col <= lastDataCol; col++) {
       const idx = col - dataCol1;
       const cl = row.getCell(col);
-      if (idx < vals.length) {
-        cl.value = typeof vals[idx] === 'number' ? Math.round(vals[idx]) : vals[idx];
+      const rawVal = idx < vals.length ? vals[idx] : undefined;
+      const resultVal = typeof rawVal === 'number' ? Math.round(rawVal) : rawVal;
+
+      if (o.formulas && idx < o.formulas.length && o.formulas[idx]) {
+        // 수식 + 캐시 결과값
+        cl.value = { formula: o.formulas[idx], result: resultVal };
+      } else if (rawVal !== undefined) {
+        cl.value = resultVal;
       }
+
       cl.font = o.redFont ? {...f14b,color:{argb:'FFFF0000'}} : (o.bv !== false && o.b ? f14b : f14);
       cl.numFmt = o.pct ? pf : nf;
       cl.alignment = o.pct ? {horizontal:'center',vertical:'center'} : {vertical:'center'};
@@ -1654,39 +1666,50 @@ async function exportXlsx() {
     bc.border = mkBdr(o.bt||null, o.bb||null, 'thin', null);
   }
 
-  // Row 9: 총매출
+  // ═══ 손익 섹션 (수식 적용) ═══
+  // Row 9: 총매출 (입력값)
   wr(9,  '총매출', scenarios.map(()=>inp.totalRevenue), {bt:'double',bb:'thin'});
-  // Row 10: 매출원가
+  // Row 10: 매출원가 (입력값)
   wr(10, '매출원가', scenarios.map(()=>inp.totalCost), {bt:'thin',bb:'hair'});
-  // Row 11: 기말재고자산 (green, blue font — 이익 증가 방향)
+  // Row 11: 기말재고자산 (입력값)
   wr(11, '(-) 매출원가 조정 (기말재고자산)', sv('invAdj'), {b:true, f:greenFill, bt:'hair',bb:'thin', bigo:'재고↑ → 원가↓ → 이익↑'});
-  // Row 12: 매출총이익
-  wr(12, '매출총이익', sv('grossProfit'), {b:true, f:blueFill, bt:'thin',bb:'thin'});
-  // Row 13: 판관비
+  // Row 12: 매출총이익 = 총매출 - 매출원가 + 기말재고자산
+  wr(12, '매출총이익', sv('grossProfit'), {b:true, f:blueFill, bt:'thin',bb:'thin',
+    formulas: sf(c => `${c}9-${c}10+${c}11`)});
+  // Row 13: 판관비 (입력값)
   wr(13, '판관비', scenarios.map(()=>inp.sga), {bt:'thin',bb:'hair'});
-  // Row 14: 추가경비 (green, red font)
+  // Row 14: 추가경비 (입력값)
   wr(14, '추가경비', sv('addExp'), {b:true, redFont:true, f:greenFill, bt:'hair',bb:'thin'});
-  // Row 15: 영업이익
-  wr(15, '영업이익', sv('opIncome'), {b:true, f:blueFill, bt:'thin'});
-  // Row 16-17: 영업외
+  // Row 15: 영업이익 = 매출총이익 - 판관비 - 추가경비
+  wr(15, '영업이익', sv('opIncome'), {b:true, f:blueFill, bt:'thin',
+    formulas: sf(c => `${c}12-${c}13-${c}14`)});
+  // Row 16-17: 영업외 (입력값)
   wr(16, '영업외수익', scenarios.map(()=>inp.nonOpIncome),  {bt:'double',bb:'hair'});
   wr(17, '영업외비용', scenarios.map(()=>inp.nonOpExpense), {bt:'hair',bb:'thin'});
-  // Row 18: 당기순이익 (orange, bottom double)
-  wr(18, '당기순이익', sv('netIncome'), {b:true, f:orangeFill, bt:'thin',bb:'double'});
-  // Row 19-20: 세무조정 (yellow)
+  // Row 18: 당기순이익 = 영업이익 + 영업외수익 - 영업외비용
+  wr(18, '당기순이익', sv('netIncome'), {b:true, f:orangeFill, bt:'thin',bb:'double',
+    formulas: sf(c => `${c}15+${c}16-${c}17`)});
+  // Row 19-20: 세무조정 (입력값)
   wr(19, '(+) 익금산입·손금불산입', scenarios.map(()=>inp.taxAdjPlus),  {bv:true, f:yellowFill, bb:'hair'});
   wr(20, '(-) 손금산입·익금불산입', scenarios.map(()=>inp.taxAdjMinus), {bv:true, f:yellowFill, bt:'hair',bb:'thin'});
-  // Row 21: 차가감소득금액 (orange)
-  wr(21, '차가감소득금액', sv('taxableIncome'), {b:true, f:orangeFill, bt:'thin'});
-  // Row 22: 이월결손금 (yellow)
-  wr(22, '(-) 이월결손금', sv('cfLoss'), {f:yellowFill, bt:'hair',bb:'thin'});
-  // Row 23: 과세표준 (orange)
-  wr(23, '과세표준', sv('taxBase'), {b:true, f:orangeFill, bt:'thin',bb:'thin'});
-  // Row 24: 산출세액 (blue, top medium)
-  wr(24, '산출세액', sv('computedTax'), {b:true, f:blueFill, bt:'medium'});
-  // Row 25+: 공제/감면 항목 (동적 행 번호 — credits 배열 기준)
+  // Row 21: 차가감소득금액 = 당기순이익 + 익금산입 - 손금산입
+  wr(21, '차가감소득금액', sv('taxableIncome'), {b:true, f:orangeFill, bt:'thin',
+    formulas: sf(c => `${c}18+${c}19-${c}20`)});
+  // Row 22: 이월결손금 = MIN(입력값, MAX(0, 차가감소득금액))
+  wr(22, '(-) 이월결손금', sv('cfLoss'), {f:yellowFill, bt:'hair',bb:'thin',
+    formulas: sf(c => `MIN(${inp.carryForwardLoss},MAX(0,${c}21))`)});
+  // Row 23: 과세표준 = MAX(0, 차가감소득금액 - 이월결손금)
+  wr(23, '과세표준', sv('taxBase'), {b:true, f:orangeFill, bt:'thin',bb:'thin',
+    formulas: sf(c => `MAX(0,${c}21-${c}22)`)});
+  // Row 24: 산출세액 = IF(과세표준<=0,0, IF(<=2억, *9%, (과세표준-2억)*19%+1800만))
+  wr(24, '산출세액', sv('computedTax'), {b:true, f:blueFill, bt:'medium',
+    formulas: sf(c => `IF(${c}23<=0,0,IF(${c}23<=200000000,${c}23*0.09,(${c}23-200000000)*0.19+18000000))`)});
+
+  // ═══ 공제/감면 항목 (동적 행, 최저한세 cascading 수식) ═══
   let exRow = 25;
   const creditList = scenarios[0].credits || [];
+  const creditRowMap = [];  // [{row, minTaxSubject, farmTaxSubject}] — 수식 참조용
+
   for (let ci = 0; ci < creditList.length; ci++) {
     const c0 = creditList[ci];
     const flags = [];
@@ -1697,23 +1720,93 @@ async function exportXlsx() {
     else if (c0.type === 'sme') bigoText = '감면율 '+Math.round((c0.rate||0)*100)+'% | '+bigoText;
     else if (c0.type === 'rd') bigoText = '대상금액×25% | '+bigoText;
 
-    wr(exRow, c0.name || '기타', scenarios.map(s => s.credits[ci].deduction), {bt: ci===0?'medium':'hair', bb:'hair', bigo: bigoText});
+    // 수식 생성: MIN(rawAmount, MAX(0, available_limit))
+    const formulas = sf(c => {
+      // rawAmount 수식 (가능한 경우 엑셀 수식, 아니면 상수)
+      let rawExpr;
+      if (c0.type === 'sme') {
+        rawExpr = `${c}24*${c0.rate}`;  // 산출세액 × 감면비율
+      } else if (c0.type === 'startupSme') {
+        // 창업감면: 감면대상소득 기반 세액 × 감면비율 (복잡하므로 상수)
+        const rawVal = scenarios[0].credits[ci].rawAmount;
+        rawExpr = String(Math.round(rawVal));
+      } else if (c0.type === 'rd') {
+        const rdAmt = c0.rdAmount || 0;
+        rawExpr = String(Math.round(rdAmt * 0.25));
+      } else {
+        rawExpr = String(Math.round(c0.amount || 0));
+      }
+
+      // available limit 수식
+      if (c0.minTaxSubject) {
+        // Phase 1: 산출세액 - 최저한세(과세표준×7%) - 이전 Phase1 공제 합계
+        let prevSum = '';
+        const prevPhase1Rows = creditRowMap.filter(cr => cr.minTaxSubject);
+        if (prevPhase1Rows.length > 0) {
+          prevSum = '-' + prevPhase1Rows.map(cr => `${c}${cr.row}`).join(`-`);
+        }
+        return `MIN(${rawExpr},MAX(0,${c}24-${c}23*0.07${prevSum}))`;
+      } else {
+        // Phase 2: 산출세액 - 모든 이전 공제 합계 (최저한세 한도 없음)
+        let prevSum = '';
+        if (creditRowMap.length > 0) {
+          prevSum = '-' + creditRowMap.map(cr => `${c}${cr.row}`).join(`-`);
+        }
+        return `MIN(${rawExpr},MAX(0,${c}24${prevSum}))`;
+      }
+    });
+
+    wr(exRow, c0.name || '기타', scenarios.map(s => s.credits[ci].deduction),
+      {bt: ci===0?'medium':'hair', bb:'hair', bigo: bigoText, formulas});
+
+    creditRowMap.push({ row: exRow, minTaxSubject: c0.minTaxSubject, farmTaxSubject: c0.farmTaxSubject });
     exRow++;
   }
-  wr(exRow, '중간예납세액',          scenarios.map(()=>inp.interimTax),         {bt:'hair',bb:'thin'});
+
+  // 중간예납세액 (입력값)
+  const interimRow = exRow;
+  wr(exRow, '중간예납세액', scenarios.map(()=>inp.interimTax), {bt:'hair',bb:'thin'});
   exRow++;
-  // 법인세/지방소득세/농특세 (orange)
-  wr(exRow, '법인세',     sv('corpTax'),  {b:true, f:orangeFill, bt:'thin',bb:'hair'});
+
+  // 법인세 = 산출세액 - 공제합계 - 중간예납
+  const corpTaxRow = exRow;
+  const allCreditRows = creditRowMap.map(cr => cr.row);
+  wr(exRow, '법인세', sv('corpTax'), {b:true, f:orangeFill, bt:'thin',bb:'hair',
+    formulas: sf(c => {
+      const deductions = allCreditRows.map(r => `${c}${r}`).join(`-`);
+      return deductions
+        ? `${c}24-${deductions}-${c}${interimRow}`
+        : `${c}24-${c}${interimRow}`;
+    })});
   exRow++;
-  wr(exRow, '지방소득세',  sv('localTax'), {b:true, f:orangeFill, bt:'hair',bb:'hair'});
+
+  // 지방소득세 = 산출세액 × 10%
+  const localTaxRow = exRow;
+  wr(exRow, '지방소득세', sv('localTax'), {b:true, f:orangeFill, bt:'hair',bb:'hair',
+    formulas: sf(c => `${c}24*0.1`)});
   exRow++;
-  wr(exRow, '농특세',     sv('farmTax'),  {b:true, f:orangeFill, bt:'hair',bb:'thin'});
+
+  // 농특세 = 농특세 체크 항목 합계 × 20%
+  const farmTaxRow = exRow;
+  const farmRows = creditRowMap.filter(cr => cr.farmTaxSubject).map(cr => cr.row);
+  wr(exRow, '농특세', sv('farmTax'), {b:true, f:orangeFill, bt:'hair',bb:'thin',
+    formulas: sf(c => {
+      if (farmRows.length === 0) return '0';
+      const sum = farmRows.length === 1
+        ? `${c}${farmRows[0]}`
+        : `(${farmRows.map(r => `${c}${r}`).join('+')})`;
+      return `${sum}*0.2`;
+    })});
   exRow++;
-  // 총 납부할 세액 (bright yellow)
-  wr(exRow, '총 납부할 세액', sv('totalTax'), {b:true, f:yBrightFill, bt:'thin'});
+
+  // 총 납부할 세액 = 법인세 + 지방소득세 + 농특세
+  wr(exRow, '총 납부할 세액', sv('totalTax'), {b:true, f:yBrightFill, bt:'thin',
+    formulas: sf(c => `${c}${corpTaxRow}+${c}${localTaxRow}+${c}${farmTaxRow}`)});
   exRow++;
-  // 당기순이익율
-  wr(exRow, '당기순이익율', scenarios.map(s=>s.netMargin), {pct:true, bt:'double',bb:'thin'});
+
+  // 당기순이익율 = 당기순이익 / 총매출
+  wr(exRow, '당기순이익율', scenarios.map(s=>s.netMargin), {pct:true, bt:'double',bb:'thin',
+    formulas: sf(c => `IF(${c}9=0,0,${c}18/${c}9)`)});
   exRow++;
 
   // === spacer ===
@@ -1732,8 +1825,12 @@ async function exportXlsx() {
     for (let col = dataCol1; col <= lastDataCol; col++) {
       const idx = col - dataCol1;
       const cl = row.getCell(col);
-      if (idx < vals.length) {
-        cl.value = typeof vals[idx] === 'number' ? Math.round(vals[idx]) : vals[idx];
+      const rawVal = idx < vals.length ? vals[idx] : undefined;
+      const resultVal = typeof rawVal === 'number' ? Math.round(rawVal) : rawVal;
+      if (o.formulas && idx < o.formulas.length && o.formulas[idx]) {
+        cl.value = { formula: o.formulas[idx], result: resultVal };
+      } else if (rawVal !== undefined) {
+        cl.value = resultVal;
       }
       cl.font = o.hdr ? f11b : f11; cl.fill = o.hdr ? blueFill : whiteFill;
       cl.numFmt = nf; cl.alignment = {vertical:'center'};
@@ -1748,19 +1845,28 @@ async function exportXlsx() {
     bc.alignment = {horizontal:'center',vertical:'center'};
     bc.border = mkBdr(o.bt||null, o.bb||'thin', 'thin', null);
   }
-  wrAux(auxStart, '최저한세', sv('minTax'), {hdr:true, bt:'thin',bb:'thin', bigo:'법인세 결과와 금액이 같아야 함'});
+  // 최저한세 = 과세표준 × 7%
+  wrAux(auxStart, '최저한세', sv('minTax'), {hdr:true, bt:'thin',bb:'thin', bigo:'과세표준 × 7%',
+    formulas: sf(c => `${c}23*0.07`)});
   let auxRow = auxStart + 1;
-  // 각 공제항목의 rawAmount vs deduction 비교
+  // 각 공제항목의 rawAmount(가능액) → 적용액 비교
   for (let ci = 0; ci < creditList.length; ci++) {
     const c0 = creditList[ci];
     const label = (c0.name || '기타') + ' (입력/가능액)';
     wrAux(auxRow, label, scenarios.map(s => s.credits[ci].rawAmount), {bt:'thin',bb:'thin'});
     auxRow++;
+    const crRow = creditRowMap[ci].row;  // 본문 공제행 참조
     const dedLabel = (c0.name || '기타') + ' (적용액)';
-    wrAux(auxRow, dedLabel, scenarios.map(s => s.credits[ci].deduction), {bb:'thin'});
+    wrAux(auxRow, dedLabel, scenarios.map(s => s.credits[ci].deduction), {bb:'thin',
+      formulas: sf(c => `${c}${crRow}`)});  // 본문 공제행 참조
     auxRow++;
   }
-  wrAux(auxRow, '농특세 과세표준', sv('farmTaxBase'), {hdr:true, bt:'medium',bb:'thin', bigo:'농특세 체크 항목 공제합계'});
+  // 농특세 과세표준 = 농특세 체크 항목 합계
+  wrAux(auxRow, '농특세 과세표준', sv('farmTaxBase'), {hdr:true, bt:'medium',bb:'thin', bigo:'농특세 체크 항목 공제합계',
+    formulas: sf(c => {
+      if (farmRows.length === 0) return '0';
+      return farmRows.map(r => `${c}${r}`).join('+');
+    })});
   auxRow++;
 
   // Download
