@@ -32,7 +32,7 @@ h1 { text-align: center; margin-bottom: 20px; font-size: 1.5em; }
 .scenario-grid label { font-size: 0.85em; }
 .scenario-grid input { width: 100%; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; text-align: right; font-size: 0.9em; }
 
-/* 세액감면/공제 드롭다운 & 추가 영역 */
+/* 세액감면/공제 통합 영역 */
 .tax-credit-section { margin-bottom: 16px; }
 .tax-credit-section h3 { font-size: 0.95em; margin: 0 0 10px; color: #555; }
 .tax-credit-add-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
@@ -40,26 +40,25 @@ h1 { text-align: center; margin-bottom: 20px; font-size: 1.5em; }
 .tax-credit-add-row select:focus { outline: none; border-color: #1a56db; box-shadow: 0 0 0 2px rgba(26,86,219,0.15); }
 .btn-add-credit { padding: 6px 14px; background: #1a56db; color: #fff; border: none; border-radius: 4px; font-size: 0.85em; cursor: pointer; white-space: nowrap; font-weight: 500; }
 .btn-add-credit:hover { background: #1444b0; }
+.btn-add-custom { padding: 6px 14px; background: #e5e7eb; color: #374151; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.85em; cursor: pointer; white-space: nowrap; font-weight: 500; }
+.btn-add-custom:hover { background: #d1d5db; }
 
 .tax-credit-list { display: flex; flex-direction: column; gap: 6px; }
-.tax-credit-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; }
+.tax-credit-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; flex-wrap: wrap; }
+.tax-credit-item.custom-item { background: #fff8f0; border-color: #fde0b0; }
 .tax-credit-item .credit-name { min-width: 180px; font-size: 0.9em; font-weight: 500; color: #333; }
 .tax-credit-item .credit-fields { display: flex; align-items: center; gap: 8px; flex: 1; }
 .tax-credit-item .credit-fields label { font-size: 0.82em; color: #666; white-space: nowrap; }
 .tax-credit-item .credit-fields input { width: 130px; padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; text-align: right; }
 .tax-credit-item .credit-fields input:focus { outline: none; border-color: #1a56db; box-shadow: 0 0 0 2px rgba(26,86,219,0.15); }
 .tax-credit-item .credit-fields select { padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85em; background: #fff; }
+.tax-credit-item input.credit-name-input { min-width: 160px; width: 160px; padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; text-align: left; }
+.credit-flags { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.credit-flags label { display: flex; align-items: center; gap: 3px; font-size: 0.78em; color: #555; white-space: nowrap; cursor: pointer; padding: 3px 6px; border-radius: 4px; border: 1px solid #e0e0e0; background: #f9f9f9; }
+.credit-flags label:has(input:checked) { background: #e8f0fe; border-color: #1a56db; color: #1a56db; font-weight: 600; }
+.credit-flags input[type="checkbox"] { margin: 0; cursor: pointer; }
 .btn-remove-credit { padding: 4px 8px; background: none; border: 1px solid #dc2626; color: #dc2626; border-radius: 4px; font-size: 0.8em; cursor: pointer; white-space: nowrap; }
 .btn-remove-credit:hover { background: #fef2f2; }
-
-/* 직접 추가 세액공제 */
-.custom-credit-section { margin-top: 12px; padding-top: 12px; border-top: 1px dashed #ddd; }
-.custom-credit-section h3 { font-size: 0.95em; margin: 0 0 10px; color: #555; }
-.custom-credit-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #fff8f0; border: 1px solid #fde0b0; border-radius: 6px; margin-bottom: 6px; }
-.custom-credit-item input.credit-name-input { min-width: 160px; width: 160px; padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; text-align: left; }
-.custom-credit-item input.credit-amount-input { width: 130px; padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; text-align: right; }
-.btn-add-custom { padding: 6px 14px; background: #e5e7eb; color: #374151; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.85em; cursor: pointer; white-space: nowrap; font-weight: 500; }
-.btn-add-custom:hover { background: #d1d5db; }
 
 /* 업종코드 입력 & 결과 */
 .industry-input-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
@@ -199,7 +198,7 @@ table.result td[contenteditable="true"]:focus { outline: 2px solid #1a56db; back
   <div class="input-section">
     <h2>세액 조정 항목</h2>
 
-    <!-- 세액감면 및 공제 드롭다운 추가 영역 -->
+    <!-- 세액감면 및 공제 통합 영역 -->
     <div class="tax-credit-section">
       <h3>세액감면 및 공제</h3>
       <div class="tax-credit-add-row">
@@ -207,55 +206,54 @@ table.result td[contenteditable="true"]:focus { outline: 2px solid #1a56db; back
           <option value="">-- 세액감면/공제 항목 선택 --</option>
           <option value="startupSme">창업중소기업세액감면</option>
           <option value="sme">중소기업특별세액감면</option>
+          <option value="social">사회보험료세액공제</option>
+          <option value="emp">고용증대세액공제</option>
           <option value="rd">연구인력개발비세액공제</option>
         </select>
-        <button class="btn-add-credit" onclick="addPresetCredit()">추가</button>
+        <button class="btn-add-credit" onclick="addCreditItem()">추가</button>
+        <button class="btn-add-custom" onclick="addCustomCreditItem()">+ 기타 직접추가</button>
       </div>
+      <div style="font-size:0.78em; color:#888; margin:-6px 0 8px 2px;">※ 최저한세/농특세 체크 = 해당 한도 적용대상 (세법 기준 기본값 설정됨, 필요 시 변경 가능)</div>
       <div class="tax-credit-list" id="creditList">
-        <!-- 기본 항목: 중소기업특별세액감면 -->
-        <div class="tax-credit-item" data-credit-type="sme" id="credit-sme">
+        <!-- 기본: 중소기업특별세액감면 -->
+        <div class="tax-credit-item" data-credit-type="sme" data-order="2">
           <span class="credit-name">중소기업특별세액감면</span>
           <div class="credit-fields">
             <label>감면비율(%)</label>
             <input type="text" id="smeRate" value="20" style="width:80px;">
           </div>
-          <button class="btn-remove-credit" onclick="removeCredit('sme')">삭제</button>
+          <div class="credit-flags">
+            <label><input type="checkbox" class="flag-mintax" checked> 최저한세</label>
+            <label><input type="checkbox" class="flag-farmtax" checked> 농특세</label>
+          </div>
+          <button class="btn-remove-credit" onclick="removeCreditItem(this)">삭제</button>
         </div>
-        <!-- 기본 항목: 연구인력개발비세액공제 -->
-        <div class="tax-credit-item" data-credit-type="rd" id="credit-rd">
-          <span class="credit-name">연구인력개발비세액공제</span>
+        <!-- 기본: 사회보험료세액공제 -->
+        <div class="tax-credit-item" data-credit-type="social" data-order="3">
+          <span class="credit-name">사회보험료세액공제</span>
           <div class="credit-fields">
-            <label>대상금액</label>
-            <input type="text" id="rdAmount" value="0">
+            <label>공제액</label>
+            <input type="text" class="credit-amount" value="0">
           </div>
-          <button class="btn-remove-credit" onclick="removeCredit('rd')">삭제</button>
+          <div class="credit-flags">
+            <label><input type="checkbox" class="flag-mintax" checked> 최저한세</label>
+            <label><input type="checkbox" class="flag-farmtax"> 농특세</label>
+          </div>
+          <button class="btn-remove-credit" onclick="removeCreditItem(this)">삭제</button>
         </div>
-      </div>
-
-      <!-- 기타 세액공제 직접 추가 -->
-      <div class="custom-credit-section">
-        <h3>기타 세액공제 (직접 추가)</h3>
-        <div id="customCreditList">
-          <!-- 기본 항목: 고용증대세액공제 -->
-          <div class="custom-credit-item" data-custom-id="empCredit">
-            <input type="text" class="credit-name-input" value="고용증대세액공제" readonly>
-            <div class="credit-fields">
-              <label>공제액</label>
-              <input type="text" class="credit-amount-input" id="empCredit" value="0">
-            </div>
-            <button class="btn-remove-credit" onclick="removeCustomCredit(this)">삭제</button>
+        <!-- 기본: 고용증대세액공제 -->
+        <div class="tax-credit-item" data-credit-type="emp" data-order="4">
+          <span class="credit-name">고용증대세액공제</span>
+          <div class="credit-fields">
+            <label>공제액</label>
+            <input type="text" class="credit-amount" value="0">
           </div>
-          <!-- 기본 항목: 사회보험료세액공제 -->
-          <div class="custom-credit-item" data-custom-id="socialCredit">
-            <input type="text" class="credit-name-input" value="사회보험료세액공제" readonly>
-            <div class="credit-fields">
-              <label>공제액</label>
-              <input type="text" class="credit-amount-input" id="socialCredit" value="0">
-            </div>
-            <button class="btn-remove-credit" onclick="removeCustomCredit(this)">삭제</button>
+          <div class="credit-flags">
+            <label><input type="checkbox" class="flag-mintax" checked> 최저한세</label>
+            <label><input type="checkbox" class="flag-farmtax" checked> 농특세</label>
           </div>
+          <button class="btn-remove-credit" onclick="removeCreditItem(this)">삭제</button>
         </div>
-        <button class="btn-add-custom" onclick="addCustomCredit()" style="margin-top:8px;">+ 세액공제 항목 추가</button>
       </div>
     </div>
 
@@ -295,16 +293,69 @@ table.result td[contenteditable="true"]:focus { outline: 2px solid #1a56db; back
 <script>
 let lastCalcData = null;
 
-// ═══════ 세액감면/공제 드롭다운 & 추가 기능 ═══════
+// ═══════ 세액감면/공제 통합 관리 ═══════
+
+// 프리셋 항목 정의: { name, order, minTax, farmTax, html생성함수 }
+const CREDIT_DEFS = {
+  startupSme: {
+    name: '창업중소기업세액감면', order: 1, minTax: true, farmTax: true,
+    fieldsHtml: function() {
+      return `
+        <div class="startup-sub-fields">
+          <label>청년창업</label>
+          <span style="display:inline-flex; gap:8px; font-size:0.85em;">
+            <label><input type="radio" name="isYouth" value="no" checked onchange="autoSetStartupRate()"> 아니오</label>
+            <label><input type="radio" name="isYouth" value="yes" onchange="autoSetStartupRate()"> 예</label>
+          </span>
+          <label>감면비율</label>
+          <select id="startupSmeRate">
+            <option value="100">100%</option>
+            <option value="75">75%</option>
+            <option value="50" selected>50%</option>
+          </select>
+          <label>감면대상소득</label>
+          <input type="text" id="startupSmeIncome" value="0">
+        </div>
+        <div id="startupWarning" style="display:none; color:#dc2626; font-size:0.82em; font-weight:600; margin-top:4px;"></div>`;
+    }
+  },
+  sme: {
+    name: '중소기업특별세액감면', order: 2, minTax: true, farmTax: true,
+    fieldsHtml: function() {
+      return `<div class="credit-fields"><label>감면비율(%)</label><input type="text" id="smeRate" value="20" style="width:80px;"></div>`;
+    }
+  },
+  social: {
+    name: '사회보험료세액공제', order: 3, minTax: true, farmTax: false,
+    fieldsHtml: function() {
+      return `<div class="credit-fields"><label>공제액</label><input type="text" class="credit-amount" value="0"></div>`;
+    }
+  },
+  emp: {
+    name: '고용증대세액공제', order: 4, minTax: true, farmTax: true,
+    fieldsHtml: function() {
+      return `<div class="credit-fields"><label>공제액</label><input type="text" class="credit-amount" value="0"></div>`;
+    }
+  },
+  rd: {
+    name: '연구인력개발비세액공제', order: 6, minTax: false, farmTax: false,
+    fieldsHtml: function() {
+      return `<div class="credit-fields"><label>대상금액</label><input type="text" id="rdAmount" value="0"></div>`;
+    }
+  }
+};
 
 // 프리셋 항목 추가
-function addPresetCredit() {
+function addCreditItem() {
   const sel = document.getElementById('creditDropdown');
   const val = sel.value;
   if (!val) { alert('항목을 선택해주세요.'); return; }
 
+  const def = CREDIT_DEFS[val];
+  if (!def) { sel.value = ''; return; }
+
   // 이미 추가된 항목 확인
-  if (document.getElementById('credit-' + val)) {
+  if (document.querySelector('#creditList .tax-credit-item[data-credit-type="' + val + '"]')) {
     alert('이미 추가된 항목입니다.');
     sel.value = '';
     return;
@@ -314,85 +365,81 @@ function addPresetCredit() {
   const div = document.createElement('div');
   div.className = 'tax-credit-item';
   div.dataset.creditType = val;
-  div.id = 'credit-' + val;
+  div.dataset.order = def.order;
 
-  if (val === 'startupSme') {
-    div.innerHTML = `
-      <span class="credit-name">창업중소기업세액감면</span>
-      <div class="startup-sub-fields">
-        <label>청년창업</label>
-        <span style="display:inline-flex; gap:8px; font-size:0.85em;">
-          <label><input type="radio" name="isYouth" value="no" checked onchange="autoSetStartupRate()"> 아니오</label>
-          <label><input type="radio" name="isYouth" value="yes" onchange="autoSetStartupRate()"> 예</label>
-        </span>
-        <label>감면비율</label>
-        <select id="startupSmeRate">
-          <option value="100">100%</option>
-          <option value="75">75%</option>
-          <option value="50" selected>50%</option>
-        </select>
-        <label>감면대상소득</label>
-        <input type="text" id="startupSmeIncome" value="0">
-      </div>
-      <div id="startupWarning" style="display:none; color:#dc2626; font-size:0.82em; font-weight:600; margin-top:4px;"></div>
-      <button class="btn-remove-credit" onclick="removeCredit('startupSme')">삭제</button>
-    `;
-    // 추가 직후 자동 감면율 설정
-    setTimeout(() => autoSetStartupRate(), 0);
-  } else if (val === 'sme') {
-    div.innerHTML = `
-      <span class="credit-name">중소기업특별세액감면</span>
-      <div class="credit-fields">
-        <label>감면비율(%)</label>
-        <input type="text" id="smeRate" value="20" style="width:80px;">
-      </div>
-      <button class="btn-remove-credit" onclick="removeCredit('sme')">삭제</button>
-    `;
-  } else if (val === 'rd') {
-    div.innerHTML = `
-      <span class="credit-name">연구인력개발비세액공제</span>
-      <div class="credit-fields">
-        <label>대상금액</label>
-        <input type="text" id="rdAmount" value="0">
-      </div>
-      <button class="btn-remove-credit" onclick="removeCredit('rd')">삭제</button>
-    `;
+  div.innerHTML = `
+    <span class="credit-name">${def.name}</span>
+    ${def.fieldsHtml()}
+    <div class="credit-flags">
+      <label><input type="checkbox" class="flag-mintax" ${def.minTax ? 'checked' : ''}> 최저한세</label>
+      <label><input type="checkbox" class="flag-farmtax" ${def.farmTax ? 'checked' : ''}> 농특세</label>
+    </div>
+    <button class="btn-remove-credit" onclick="removeCreditItem(this)">삭제</button>
+  `;
+
+  // 순서대로 삽입 (order 기준)
+  const items = list.querySelectorAll('.tax-credit-item');
+  let inserted = false;
+  for (const item of items) {
+    const itemOrder = parseInt(item.dataset.order) || 99;
+    if (def.order < itemOrder) {
+      list.insertBefore(div, item);
+      inserted = true;
+      break;
+    }
   }
+  if (!inserted) list.appendChild(div);
 
-  list.appendChild(div);
   sel.value = '';
   rebindCommaFormat();
-}
 
-// 프리셋 항목 삭제
-function removeCredit(type) {
-  const el = document.getElementById('credit-' + type);
-  if (el) el.remove();
+  // 창업감면 추가 시 자동 감면율 설정
+  if (val === 'startupSme') {
+    setTimeout(() => autoSetStartupRate(), 0);
+  }
 }
 
 // 기타 세액공제 직접 추가
 let customCreditCounter = 0;
-function addCustomCredit() {
+function addCustomCreditItem() {
   customCreditCounter++;
-  const list = document.getElementById('customCreditList');
+  const list = document.getElementById('creditList');
   const div = document.createElement('div');
-  div.className = 'custom-credit-item';
-  div.dataset.customId = 'custom_' + customCreditCounter;
+  div.className = 'tax-credit-item custom-item';
+  div.dataset.creditType = 'custom';
+  div.dataset.order = '5';  // 기타: 최저한세적용 항목 뒤, R&D 앞
   div.innerHTML = `
     <input type="text" class="credit-name-input" placeholder="세액공제 항목명 입력">
     <div class="credit-fields">
       <label>공제액</label>
-      <input type="text" class="credit-amount-input" value="0">
+      <input type="text" class="credit-amount" value="0">
     </div>
-    <button class="btn-remove-credit" onclick="removeCustomCredit(this)">삭제</button>
+    <div class="credit-flags">
+      <label><input type="checkbox" class="flag-mintax"> 최저한세</label>
+      <label><input type="checkbox" class="flag-farmtax"> 농특세</label>
+    </div>
+    <button class="btn-remove-credit" onclick="removeCreditItem(this)">삭제</button>
   `;
-  list.appendChild(div);
+
+  // order=5 위치에 삽입
+  const items = list.querySelectorAll('.tax-credit-item');
+  let inserted = false;
+  for (const item of items) {
+    const itemOrder = parseInt(item.dataset.order) || 99;
+    if (5 < itemOrder) {
+      list.insertBefore(div, item);
+      inserted = true;
+      break;
+    }
+  }
+  if (!inserted) list.appendChild(div);
+
   rebindCommaFormat();
 }
 
-// 기타 세액공제 삭제
-function removeCustomCredit(btn) {
-  btn.closest('.custom-credit-item').remove();
+// 항목 삭제
+function removeCreditItem(btn) {
+  btn.closest('.tax-credit-item').remove();
 }
 
 // ═══════ 업종코드 조회 & 소기업/중기업 자동 판정 ═══════
@@ -760,7 +807,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // 동적으로 추가된 input에 콤마 포맷 재바인딩
 function rebindCommaFormat() {
-  document.querySelectorAll('.tax-credit-item input[type=text], .custom-credit-item input.credit-amount-input').forEach(inp => {
+  document.querySelectorAll('.tax-credit-item input[type=text]').forEach(inp => {
     if (inp.id === 'smeRate' || inp.id === 'startupSmeRate' || inp.classList.contains('credit-name-input')) return;
     if (inp.dataset.commaFormatted) return;
     inp.dataset.commaFormatted = '1';
@@ -773,49 +820,50 @@ function rebindCommaFormat() {
   });
 }
 
-// 세액감면/공제 현재 상태를 객체로 수집
+// 세액감면/공제 현재 상태를 통합 배열로 수집
 function collectCredits() {
-  const credits = {
-    startupSme: { active: false, rate: 0.5, income: 0 },
-    sme: { active: false, rate: 0.2 },
-    rd: { active: false, amount: 0 },
-    empCredit: 0,
-    socialCredit: 0,
-    customCredits: []
-  };
+  const items = [];
 
-  // 프리셋 항목
-  if (document.getElementById('credit-startupSme')) {
-    credits.startupSme.active = true;
-    const rateEl = document.getElementById('startupSmeRate');
-    credits.startupSme.rate = rateEl ? Number(rateEl.value) / 100 : 0.5;
-    credits.startupSme.income = pv('startupSmeIncome');
-  }
-  if (document.getElementById('credit-sme')) {
-    credits.sme.active = true;
-    credits.sme.rate = pv('smeRate') / 100;
-  }
-  if (document.getElementById('credit-rd')) {
-    credits.rd.active = true;
-    credits.rd.amount = pv('rdAmount');
-  }
+  document.querySelectorAll('#creditList .tax-credit-item').forEach(el => {
+    const type = el.dataset.creditType;
+    const order = parseInt(el.dataset.order) || 99;
+    const minTaxSubject = el.querySelector('.flag-mintax') ? el.querySelector('.flag-mintax').checked : false;
+    const farmTaxSubject = el.querySelector('.flag-farmtax') ? el.querySelector('.flag-farmtax').checked : false;
 
-  // 기타 세액공제
-  document.querySelectorAll('#customCreditList .custom-credit-item').forEach(item => {
-    const nameInput = item.querySelector('.credit-name-input');
-    const amountInput = item.querySelector('.credit-amount-input');
-    const name = nameInput ? nameInput.value.trim() : '';
-    const amount = amountInput ? Number(String(amountInput.value).replace(/,/g, '')) || 0 : 0;
-    if (name && item.dataset.customId === 'empCredit') {
-      credits.empCredit = amount;
-    } else if (name && item.dataset.customId === 'socialCredit') {
-      credits.socialCredit = amount;
-    } else if (name) {
-      credits.customCredits.push({ name, amount });
+    const item = { type, order, minTaxSubject, farmTaxSubject, deduction: 0 };
+
+    if (type === 'startupSme') {
+      const rateEl = document.getElementById('startupSmeRate');
+      item.name = '창업중소기업세액감면';
+      item.rate = rateEl ? Number(rateEl.value) / 100 : 0.5;
+      item.income = pv('startupSmeIncome');
+    } else if (type === 'sme') {
+      item.name = '중소기업특별세액감면';
+      item.rate = pv('smeRate') / 100;
+    } else if (type === 'social') {
+      item.name = '사회보험료세액공제';
+      const amtEl = el.querySelector('.credit-amount');
+      item.amount = amtEl ? Number(String(amtEl.value).replace(/,/g, '')) || 0 : 0;
+    } else if (type === 'emp') {
+      item.name = '고용증대세액공제';
+      const amtEl = el.querySelector('.credit-amount');
+      item.amount = amtEl ? Number(String(amtEl.value).replace(/,/g, '')) || 0 : 0;
+    } else if (type === 'rd') {
+      item.name = '연구인력개발비세액공제';
+      item.rdAmount = pv('rdAmount');
+    } else if (type === 'custom') {
+      const nameInput = el.querySelector('.credit-name-input');
+      const amtEl = el.querySelector('.credit-amount');
+      item.name = nameInput ? nameInput.value.trim() : '기타';
+      item.amount = amtEl ? Number(String(amtEl.value).replace(/,/g, '')) || 0 : 0;
     }
+
+    items.push(item);
   });
 
-  return credits;
+  // order 기준 정렬
+  items.sort((a, b) => a.order - b.order);
+  return items;
 }
 
 // 숫자 포맷
@@ -1203,6 +1251,13 @@ function parseIncomeStatement(data) {
   console.log('[파싱완료] 매핑된 필드:', [...matched].join(', '));
 }
 
+// 산출세액 계산 헬퍼
+function calcComputedTax(taxBase) {
+  if (taxBase <= 0) return 0;
+  if (taxBase <= 200000000) return taxBase * 0.09;
+  return (taxBase - 200000000) * 0.19 + 18000000;
+}
+
 function calculate() {
   const companyName = document.getElementById('companyName').value || '(회사명)';
 
@@ -1212,25 +1267,13 @@ function calculate() {
   const sga = pv('sga');
   const nonOpIncome = pv('nonOpIncome');
   const nonOpExpense = pv('nonOpExpense');
-  const taxAdjPlus = pv('taxAdjPlus');   // 익금산입·손금불산입 (+)
-  const taxAdjMinus = pv('taxAdjMinus'); // 손금산입·익금불산입 (-)
-  const taxAdj = taxAdjPlus - taxAdjMinus;
-  const carryForwardLoss = pv('carryForwardLoss'); // 이월결손금
-
-  // 세액 조정 (드롭다운/추가 방식에서 수집)
-  const credits = collectCredits();
-  const smeRate = credits.sme.active ? credits.sme.rate : 0;
-  const rdAmount = credits.rd.active ? credits.rd.amount : 0;
-  const empCredit = credits.empCredit;
-  const socialCredit = credits.socialCredit;
+  const taxAdjPlus = pv('taxAdjPlus');
+  const taxAdjMinus = pv('taxAdjMinus');
+  const carryForwardLoss = pv('carryForwardLoss');
   const interimTax = pv('interimTax');
 
-  // 창업중소기업세액감면 (기본 틀 - 추후 데이터 반영 예정)
-  const startupSmeActive = credits.startupSme.active;
-  const startupSmeRate = credits.startupSme.rate;
-  const startupSmeIncome = credits.startupSme.income;
-  // 기타 직접 추가 세액공제
-  const customCredits = credits.customCredits;
+  // 세액감면/공제 수집 (통합 배열)
+  const creditItems = collectCredits();
 
   // 추가경비 & 기말재고자산
   const addExps = [0, pv('addExp1'), pv('addExp2'), pv('addExp3')];
@@ -1238,7 +1281,7 @@ function calculate() {
 
   // 시나리오별 계산
   const scenarios = addExps.map((addExp, idx) => {
-    const invAdj = invAdjs[idx];  // 기말재고자산 설정액 (매출원가 감소 → 이익 증가)
+    const invAdj = invAdjs[idx];
     const revenue = totalRevenue;
     const grossProfit = revenue - totalCost + invAdj;
     const opIncome = grossProfit - sga - addExp;
@@ -1246,61 +1289,62 @@ function calculate() {
     const taxableIncome = netIncome + taxAdjPlus - taxAdjMinus;
 
     // 이월결손금 & 과세표준
-    const cfLoss = Math.min(carryForwardLoss, Math.max(0, taxableIncome)); // 차가감소득 한도
+    const cfLoss = Math.min(carryForwardLoss, Math.max(0, taxableIncome));
     const taxBase = Math.max(0, taxableIncome - cfLoss);
 
-    // 산출세액 (과세표준 기준)
-    let computedTax = 0;
-    if (taxBase <= 200000000) {
-      computedTax = taxBase * 0.09;
-    } else {
-      computedTax = (taxBase - 200000000) * 0.19 + 18000000;
-    }
-    if (taxBase <= 0) computedTax = 0;
+    // 산출세액
+    const computedTax = calcComputedTax(taxBase);
 
-    // 최저한세 (과세표준 기준)
+    // 최저한세
     const minTax = taxBase * 0.07;
 
-    // 창업중소기업세액감면 (기본 틀 - 추후 상세 로직 추가 예정)
-    let startupSmeDeduction = 0;
-    if (startupSmeActive) {
-      // 현재는 기본 틀만: 감면대상소득 × 세율 × 감면비율
-      const startupTaxBase = startupSmeIncome > 0 ? startupSmeIncome : taxBase;
-      let startupTax = 0;
-      if (startupTaxBase <= 200000000) {
-        startupTax = startupTaxBase * 0.09;
+    // ── 각 항목의 rawAmount 계산 ──
+    const credits = creditItems.map(c => ({...c, rawAmount: 0, deduction: 0}));
+
+    for (const c of credits) {
+      if (c.type === 'startupSme') {
+        const startupTaxBase = c.income > 0 ? c.income : taxBase;
+        const startupTax = calcComputedTax(startupTaxBase);
+        c.rawAmount = startupTax * c.rate;
+      } else if (c.type === 'sme') {
+        c.rawAmount = computedTax * c.rate;
+      } else if (c.type === 'rd') {
+        c.rawAmount = (c.rdAmount || 0) * 0.25;
       } else {
-        startupTax = (startupTaxBase - 200000000) * 0.19 + 18000000;
+        c.rawAmount = c.amount || 0;
       }
-      startupSmeDeduction = Math.max(0, Math.min(startupTax * startupSmeRate, computedTax - minTax));
     }
 
-    // 중소기업특별세액감면
-    const smeLimit = computedTax * smeRate;
-    const smeDeduction = Math.max(0, Math.min(smeLimit, computedTax - startupSmeDeduction - minTax));
+    // ── Phase 1: 최저한세 적용대상 항목 (산출세액 - 최저한세 한도 내 cascading) ──
+    const minTaxLimit = Math.max(0, computedTax - minTax);
+    let minTaxUsed = 0;
+    let totalDeducted = 0;
 
-    // 연구인력개발비세액공제
-    const rdCredit = Math.max(0, Math.min(rdAmount * 0.25, computedTax - startupSmeDeduction - smeDeduction));
+    for (const c of credits) {
+      if (!c.minTaxSubject) continue;
+      const available = Math.max(0, minTaxLimit - minTaxUsed);
+      c.deduction = Math.max(0, Math.min(c.rawAmount, available));
+      minTaxUsed += c.deduction;
+      totalDeducted += c.deduction;
+    }
 
-    // 사회보험료세액공제 (최저한세 적용대상, 농어촌특별세 비적용)
-    const socialLimit = (computedTax - minTax) - startupSmeDeduction - smeDeduction;
-    const socialDeduction = Math.max(0, Math.min(socialCredit, socialLimit));
+    // ── Phase 2: 최저한세 비적용 항목 (잔여 산출세액에서 추가 차감, 0까지) ──
+    for (const c of credits) {
+      if (c.minTaxSubject) continue;
+      const available = Math.max(0, computedTax - totalDeducted);
+      c.deduction = Math.max(0, Math.min(c.rawAmount, available));
+      totalDeducted += c.deduction;
+    }
 
-    // 고용증대세액공제 (최저한세 적용대상, 농어촌특별세 적용)
-    const empLimit = (computedTax - minTax) - startupSmeDeduction - smeDeduction - socialDeduction;
-    const empDeduction = Math.max(0, Math.min(empCredit, empLimit));
-
-    // 기타 직접 추가 세액공제 합계
-    const customCreditTotal = customCredits.reduce((sum, c) => sum + c.amount, 0);
+    // ── 농특세: 농특세 체크된 항목의 공제액 합계 × 20% ──
+    const farmTaxBase = credits.filter(c => c.farmTaxSubject).reduce((sum, c) => sum + c.deduction, 0);
+    const farmTax = farmTaxBase * 0.2;
 
     // 법인세
-    const corpTax = computedTax - startupSmeDeduction - smeDeduction - rdCredit - empDeduction - socialDeduction - customCreditTotal - interimTax;
+    const corpTax = computedTax - totalDeducted - interimTax;
 
     // 지방소득세
     const localTax = computedTax * 0.1;
-
-    // 농특세
-    const farmTax = empDeduction * 0.2;
 
     // 총 납부세액
     const totalTax = corpTax + localTax + farmTax;
@@ -1310,22 +1354,23 @@ function calculate() {
 
     return {
       label: idx === 0 ? '기본' : 'Case ' + idx,
-      addExp, invAdj,
-      taxAdjPlus, taxAdjMinus,
+      addExp, invAdj, taxAdjPlus, taxAdjMinus,
       revenue, grossProfit, opIncome, netIncome, taxableIncome,
-      cfLoss, taxBase,
-      computedTax, minTax, startupSmeDeduction, smeDeduction, smeLimit, rdCredit, empDeduction,
-      socialCredit, socialDeduction, customCreditTotal, interimTax, corpTax, localTax, farmTax, totalTax, netMargin
+      cfLoss, taxBase, computedTax, minTax,
+      credits,  // 각 항목별 deduction 포함
+      totalDeducted, interimTax,
+      corpTax, localTax, farmTax, farmTaxBase, totalTax, netMargin
     };
   });
 
-  // 활성 시나리오 (추가경비 또는 기말재고자산이 0이 아닌 것 포함)
+  // 활성 시나리오
   const active = scenarios.filter((s, i) => i === 0 || s.addExp !== 0 || s.invAdj !== 0);
 
   lastCalcData = {
     companyName,
     scenarios: active,
-    inputs: { totalRevenue, totalCost, sga, nonOpIncome, nonOpExpense, taxAdjPlus, taxAdjMinus, taxAdj, carryForwardLoss, smeRate, rdAmount, empCredit, socialCredit, interimTax, startupSmeActive, startupSmeRate, startupSmeIncome, customCredits, invAdjs }
+    creditItems,
+    inputs: { totalRevenue, totalCost, sga, nonOpIncome, nonOpExpense, taxAdjPlus, taxAdjMinus, carryForwardLoss, interimTax, invAdjs }
   };
 
   renderResult(companyName, active);
@@ -1372,23 +1417,30 @@ function renderResult(companyName, scenarios) {
   // 세액 섹션
   html += '<tr class="section-header"><td colspan="' + (colCount + 2) + '">세액 계산</td></tr>';
   html += row('산출세액', 'computedTax', 'row-blue');
-  // 창업중소기업세액감면 (활성화된 경우만 표시)
-  if (scenarios[0].startupSmeDeduction !== undefined && lastCalcData && lastCalcData.inputs.startupSmeActive) {
-    html += row('(-) 창업중소기업세액감면', 'startupSmeDeduction', '', '감면율 ' + Math.round(lastCalcData.inputs.startupSmeRate * 100) + '%');
-  }
-  html += row('(-) 중소기업특별세액감면', 'smeDeduction', '', '서비스업 ' + Math.round(lastCalcData.inputs.smeRate * 100) + '%');
-  html += row('(-) 연구인력개발비세액공제', 'rdCredit', '', '급여+4대보험료 반영');
-  html += row('(-) 고용증대세액공제', 'empDeduction');
-  html += row('(-) 사회보험료세액공제', 'socialDeduction');
-  // 기타 직접 추가 세액공제
-  if (lastCalcData && lastCalcData.inputs.customCredits && lastCalcData.inputs.customCredits.length > 0) {
-    for (const cc of lastCalcData.inputs.customCredits) {
-      html += '<tr><td>(-) ' + cc.name + '</td>';
-      for (const s of scenarios) html += '<td>' + fmt(cc.amount) + '</td>';
-      html += '<td contenteditable="true" style="text-align:left;font-weight:normal;font-size:0.85em;"></td>';
+
+  // 동적 감면/공제 항목 (scenarios[0].credits 기준으로 행 생성)
+  if (scenarios[0].credits) {
+    for (let ci = 0; ci < scenarios[0].credits.length; ci++) {
+      const c0 = scenarios[0].credits[ci];
+      const flags = [];
+      if (c0.minTaxSubject) flags.push('최저한세');
+      if (c0.farmTaxSubject) flags.push('농특세');
+      const flagStr = flags.length > 0 ? flags.join(', ') : '';
+      let bigoText = flagStr;
+      // 특수 비고: 감면율 등
+      if (c0.type === 'startupSme') bigoText = '감면율 ' + Math.round((c0.rate||0) * 100) + '% | ' + flagStr;
+      else if (c0.type === 'sme') bigoText = '감면율 ' + Math.round((c0.rate||0) * 100) + '% | ' + flagStr;
+      else if (c0.type === 'rd') bigoText = '대상금액×25% | ' + flagStr;
+
+      html += '<tr><td>(-) ' + (c0.name || '기타') + '</td>';
+      for (const s of scenarios) {
+        html += '<td>' + fmt(s.credits[ci].deduction) + '</td>';
+      }
+      html += '<td contenteditable="true" style="text-align:left;font-weight:normal;font-size:0.85em;">' + bigoText + '</td>';
       html += '</tr>';
     }
   }
+
   html += row('(-) 중간예납세액', 'interimTax');
   html += row('법인세', 'corpTax', 'row-orange');
   html += row('지방소득세', 'localTax', 'row-orange');
@@ -1399,7 +1451,11 @@ function renderResult(companyName, scenarios) {
   html += '<tr class="section-header"><td colspan="' + (colCount + 2) + '">참고</td></tr>';
   html += '<tr><td>최저한세</td>';
   for (const s of scenarios) html += '<td>' + fmt(s.minTax) + '</td>';
-  html += '<td contenteditable="true" style="text-align:left;font-weight:normal;font-size:0.85em;">법인세 결과와 금액이 같아야 함</td>';
+  html += '<td contenteditable="true" style="text-align:left;font-weight:normal;font-size:0.85em;">과세표준 x 7%</td>';
+  html += '</tr>';
+  html += '<tr><td>농특세 과세표준</td>';
+  for (const s of scenarios) html += '<td>' + fmt(s.farmTaxBase) + '</td>';
+  html += '<td contenteditable="true" style="text-align:left;font-weight:normal;font-size:0.85em;">농특세 체크 항목 공제합계</td>';
   html += '</tr>';
   html += '<tr><td>당기순이익율</td>';
   for (const s of scenarios) html += '<td>' + (s.netMargin * 100).toFixed(2) + '%</td>';
@@ -1412,8 +1468,8 @@ function renderResult(companyName, scenarios) {
   // 세율 안내
   document.getElementById('infoBox').innerHTML =
     '<strong>법인세 세율:</strong> 과세표준 2억 이하 9%, 2억 초과~200억 이하 19%, 200억 초과~3,000억 이하 21%, 3,000억 초과 24%<br>' +
-    '<strong>최저한세:</strong> 과세표준(당기순이익) x 7% — 세액감면/공제의 하한<br>' +
-    '<strong>지방소득세:</strong> 산출세액 x 10% &nbsp;|&nbsp; <strong>농특세:</strong> 고용증대세액공제 x 20%';
+    '<strong>최저한세:</strong> 과세표준(당기순이익) x 7% — 최저한세 체크 항목의 공제 한도<br>' +
+    '<strong>지방소득세:</strong> 산출세액 x 10% &nbsp;|&nbsp; <strong>농특세:</strong> 농특세 체크 항목 공제합계 x 20%';
 
   section.scrollIntoView({ behavior: 'smooth' });
 }
@@ -1555,12 +1611,17 @@ async function exportXlsx() {
   hBigo.value = '비고'; hBigo.font = whiteFont; hBigo.fill = darkFill;
   hBigo.alignment = {horizontal:'center',vertical:'center'}; hBigo.border = {top:wBdr, left:wBdr};
 
-  // === Data row writer ===
+  // === Data row writer (수식 지원) ===
   function sv(field) { return scenarios.map(s => s[field]); }
   const inp = inputs;
 
+  // 컬럼번호 → 엑셀 알파벳 (2='B', 3='C' 등)
+  function colL(n) { return String.fromCharCode(64 + n); }
+  // 시나리오별 수식 배열 생성 헬퍼: sf(c => `${c}9-${c}10`) → ['B9-B10','C9-C10',...]
+  function sf(fn) { return scenarios.map((_, i) => fn(colL(dataCol1 + i))); }
+
   // borderSpec: {t,b} for top/bottom border styles of row
-  // fillSpec: fill object for the row
+  // o.formulas: 수식 배열 (시나리오별). 제공 시 값 대신 수식+결과값으로 기록
   function wr(r, label, vals, o={}) {
     const row = ws.getRow(r);
     row.height = 31.2;
@@ -1573,13 +1634,20 @@ async function exportXlsx() {
     lc.fill = o.f || whiteFill;
     lc.border = mkBdr(o.bt||null, o.bb||null, null, 'thin');
 
-    // Data columns B~E (fill all, even empty beyond scenario count)
+    // Data columns B~E
     for (let col = dataCol1; col <= lastDataCol; col++) {
       const idx = col - dataCol1;
       const cl = row.getCell(col);
-      if (idx < vals.length) {
-        cl.value = typeof vals[idx] === 'number' ? Math.round(vals[idx]) : vals[idx];
+      const rawVal = idx < vals.length ? vals[idx] : undefined;
+      const resultVal = typeof rawVal === 'number' ? Math.round(rawVal) : rawVal;
+
+      if (o.formulas && idx < o.formulas.length && o.formulas[idx]) {
+        // 수식 + 캐시 결과값
+        cl.value = { formula: o.formulas[idx], result: resultVal };
+      } else if (rawVal !== undefined) {
+        cl.value = resultVal;
       }
+
       cl.font = o.redFont ? {...f14b,color:{argb:'FFFF0000'}} : (o.bv !== false && o.b ? f14b : f14);
       cl.numFmt = o.pct ? pf : nf;
       cl.alignment = o.pct ? {horizontal:'center',vertical:'center'} : {vertical:'center'};
@@ -1598,71 +1666,147 @@ async function exportXlsx() {
     bc.border = mkBdr(o.bt||null, o.bb||null, 'thin', null);
   }
 
-  // Row 9: 총매출
+  // ═══ 손익 섹션 (수식 적용) ═══
+  // Row 9: 총매출 (입력값)
   wr(9,  '총매출', scenarios.map(()=>inp.totalRevenue), {bt:'double',bb:'thin'});
-  // Row 10: 매출원가
+  // Row 10: 매출원가 (입력값)
   wr(10, '매출원가', scenarios.map(()=>inp.totalCost), {bt:'thin',bb:'hair'});
-  // Row 11: 기말재고자산 (green, blue font — 이익 증가 방향)
+  // Row 11: 기말재고자산 (입력값)
   wr(11, '(-) 매출원가 조정 (기말재고자산)', sv('invAdj'), {b:true, f:greenFill, bt:'hair',bb:'thin', bigo:'재고↑ → 원가↓ → 이익↑'});
-  // Row 12: 매출총이익
-  wr(12, '매출총이익', sv('grossProfit'), {b:true, f:blueFill, bt:'thin',bb:'thin'});
-  // Row 13: 판관비
+  // Row 12: 매출총이익 = 총매출 - 매출원가 + 기말재고자산
+  wr(12, '매출총이익', sv('grossProfit'), {b:true, f:blueFill, bt:'thin',bb:'thin',
+    formulas: sf(c => `${c}9-${c}10+${c}11`)});
+  // Row 13: 판관비 (입력값)
   wr(13, '판관비', scenarios.map(()=>inp.sga), {bt:'thin',bb:'hair'});
-  // Row 14: 추가경비 (green, red font)
+  // Row 14: 추가경비 (입력값)
   wr(14, '추가경비', sv('addExp'), {b:true, redFont:true, f:greenFill, bt:'hair',bb:'thin'});
-  // Row 15: 영업이익
-  wr(15, '영업이익', sv('opIncome'), {b:true, f:blueFill, bt:'thin'});
-  // Row 16-17: 영업외
+  // Row 15: 영업이익 = 매출총이익 - 판관비 - 추가경비
+  wr(15, '영업이익', sv('opIncome'), {b:true, f:blueFill, bt:'thin',
+    formulas: sf(c => `${c}12-${c}13-${c}14`)});
+  // Row 16-17: 영업외 (입력값)
   wr(16, '영업외수익', scenarios.map(()=>inp.nonOpIncome),  {bt:'double',bb:'hair'});
   wr(17, '영업외비용', scenarios.map(()=>inp.nonOpExpense), {bt:'hair',bb:'thin'});
-  // Row 18: 당기순이익 (orange, bottom double)
-  wr(18, '당기순이익', sv('netIncome'), {b:true, f:orangeFill, bt:'thin',bb:'double'});
-  // Row 19-20: 세무조정 (yellow)
+  // Row 18: 당기순이익 = 영업이익 + 영업외수익 - 영업외비용
+  wr(18, '당기순이익', sv('netIncome'), {b:true, f:orangeFill, bt:'thin',bb:'double',
+    formulas: sf(c => `${c}15+${c}16-${c}17`)});
+  // Row 19-20: 세무조정 (입력값)
   wr(19, '(+) 익금산입·손금불산입', scenarios.map(()=>inp.taxAdjPlus),  {bv:true, f:yellowFill, bb:'hair'});
   wr(20, '(-) 손금산입·익금불산입', scenarios.map(()=>inp.taxAdjMinus), {bv:true, f:yellowFill, bt:'hair',bb:'thin'});
-  // Row 21: 차가감소득금액 (orange)
-  wr(21, '차가감소득금액', sv('taxableIncome'), {b:true, f:orangeFill, bt:'thin'});
-  // Row 22: 이월결손금 (yellow)
-  wr(22, '(-) 이월결손금', sv('cfLoss'), {f:yellowFill, bt:'hair',bb:'thin'});
-  // Row 23: 과세표준 (orange)
-  wr(23, '과세표준', sv('taxBase'), {b:true, f:orangeFill, bt:'thin',bb:'thin'});
-  // Row 24: 산출세액 (blue, top medium)
-  wr(24, '산출세액', sv('computedTax'), {b:true, f:blueFill, bt:'medium'});
-  // Row 25+: 공제/감면 항목 (동적 행 번호)
+  // Row 21: 차가감소득금액 = 당기순이익 + 익금산입 - 손금산입
+  wr(21, '차가감소득금액', sv('taxableIncome'), {b:true, f:orangeFill, bt:'thin',
+    formulas: sf(c => `${c}18+${c}19-${c}20`)});
+  // Row 22: 이월결손금 = MIN(입력값, MAX(0, 차가감소득금액))
+  wr(22, '(-) 이월결손금', sv('cfLoss'), {f:yellowFill, bt:'hair',bb:'thin',
+    formulas: sf(c => `MIN(${inp.carryForwardLoss},MAX(0,${c}21))`)});
+  // Row 23: 과세표준 = MAX(0, 차가감소득금액 - 이월결손금)
+  wr(23, '과세표준', sv('taxBase'), {b:true, f:orangeFill, bt:'thin',bb:'thin',
+    formulas: sf(c => `MAX(0,${c}21-${c}22)`)});
+  // Row 24: 산출세액 = IF(과세표준<=0,0, IF(<=2억, *9%, (과세표준-2억)*19%+1800만))
+  wr(24, '산출세액', sv('computedTax'), {b:true, f:blueFill, bt:'medium',
+    formulas: sf(c => `IF(${c}23<=0,0,IF(${c}23<=200000000,${c}23*0.09,(${c}23-200000000)*0.19+18000000))`)});
+
+  // ═══ 공제/감면 항목 (동적 행, 최저한세 cascading 수식) ═══
   let exRow = 25;
-  if (inp.startupSmeActive) {
-    wr(exRow, '창업중소기업세액감면', sv('startupSmeDeduction'), {bt:'medium',bb:'hair', bigo:'감면율 '+Math.round(inp.startupSmeRate*100)+'%'});
+  const creditList = scenarios[0].credits || [];
+  const creditRowMap = [];  // [{row, minTaxSubject, farmTaxSubject}] — 수식 참조용
+
+  for (let ci = 0; ci < creditList.length; ci++) {
+    const c0 = creditList[ci];
+    const flags = [];
+    if (c0.minTaxSubject) flags.push('최저한세');
+    if (c0.farmTaxSubject) flags.push('농특세');
+    let bigoText = flags.join(', ');
+    if (c0.type === 'startupSme') bigoText = '감면율 '+Math.round((c0.rate||0)*100)+'% | '+bigoText;
+    else if (c0.type === 'sme') bigoText = '감면율 '+Math.round((c0.rate||0)*100)+'% | '+bigoText;
+    else if (c0.type === 'rd') bigoText = '대상금액×25% | '+bigoText;
+
+    // 수식 생성: MIN(rawAmount, MAX(0, available_limit))
+    const formulas = sf(c => {
+      // rawAmount 수식 (가능한 경우 엑셀 수식, 아니면 상수)
+      let rawExpr;
+      if (c0.type === 'sme') {
+        rawExpr = `${c}24*${c0.rate}`;  // 산출세액 × 감면비율
+      } else if (c0.type === 'startupSme') {
+        // 창업감면: 감면대상소득 기반 세액 × 감면비율 (복잡하므로 상수)
+        const rawVal = scenarios[0].credits[ci].rawAmount;
+        rawExpr = String(Math.round(rawVal));
+      } else if (c0.type === 'rd') {
+        const rdAmt = c0.rdAmount || 0;
+        rawExpr = String(Math.round(rdAmt * 0.25));
+      } else {
+        rawExpr = String(Math.round(c0.amount || 0));
+      }
+
+      // available limit 수식
+      if (c0.minTaxSubject) {
+        // Phase 1: 산출세액 - 최저한세(과세표준×7%) - 이전 Phase1 공제 합계
+        let prevSum = '';
+        const prevPhase1Rows = creditRowMap.filter(cr => cr.minTaxSubject);
+        if (prevPhase1Rows.length > 0) {
+          prevSum = '-' + prevPhase1Rows.map(cr => `${c}${cr.row}`).join(`-`);
+        }
+        return `MIN(${rawExpr},MAX(0,${c}24-${c}23*0.07${prevSum}))`;
+      } else {
+        // Phase 2: 산출세액 - 모든 이전 공제 합계 (최저한세 한도 없음)
+        let prevSum = '';
+        if (creditRowMap.length > 0) {
+          prevSum = '-' + creditRowMap.map(cr => `${c}${cr.row}`).join(`-`);
+        }
+        return `MIN(${rawExpr},MAX(0,${c}24${prevSum}))`;
+      }
+    });
+
+    wr(exRow, c0.name || '기타', scenarios.map(s => s.credits[ci].deduction),
+      {bt: ci===0?'medium':'hair', bb:'hair', bigo: bigoText, formulas});
+
+    creditRowMap.push({ row: exRow, minTaxSubject: c0.minTaxSubject, farmTaxSubject: c0.farmTaxSubject });
     exRow++;
   }
-  wr(exRow, '중소기업특별세액감면',   sv('smeDeduction'),                      {bt: exRow===24?'medium':'hair', bb:'hair', bigo:'서비스업 '+Math.round(inp.smeRate*100)+'%'});
+
+  // 중간예납세액 (입력값)
+  const interimRow = exRow;
+  wr(exRow, '중간예납세액', scenarios.map(()=>inp.interimTax), {bt:'hair',bb:'thin'});
   exRow++;
-  wr(exRow, '연구인력개발비세액공제',  sv('rdCredit'),                          {bt:'hair',bb:'hair', bigo:'급여+4대보험료 반영'});
+
+  // 법인세 = 산출세액 - 공제합계 - 중간예납
+  const corpTaxRow = exRow;
+  const allCreditRows = creditRowMap.map(cr => cr.row);
+  wr(exRow, '법인세', sv('corpTax'), {b:true, f:orangeFill, bt:'thin',bb:'hair',
+    formulas: sf(c => {
+      const deductions = allCreditRows.map(r => `${c}${r}`).join(`-`);
+      return deductions
+        ? `${c}24-${deductions}-${c}${interimRow}`
+        : `${c}24-${c}${interimRow}`;
+    })});
   exRow++;
-  wr(exRow, '고용증대세액공제',       sv('empDeduction'),                       {bt:'hair',bb:'hair'});
+
+  // 지방소득세 = 산출세액 × 10%
+  const localTaxRow = exRow;
+  wr(exRow, '지방소득세', sv('localTax'), {b:true, f:orangeFill, bt:'hair',bb:'hair',
+    formulas: sf(c => `${c}24*0.1`)});
   exRow++;
-  wr(exRow, '사회보험료세액공제',     sv('socialDeduction'),                    {bt:'hair',bb:'hair'});
+
+  // 농특세 = 농특세 체크 항목 합계 × 20%
+  const farmTaxRow = exRow;
+  const farmRows = creditRowMap.filter(cr => cr.farmTaxSubject).map(cr => cr.row);
+  wr(exRow, '농특세', sv('farmTax'), {b:true, f:orangeFill, bt:'hair',bb:'thin',
+    formulas: sf(c => {
+      if (farmRows.length === 0) return '0';
+      const sum = farmRows.length === 1
+        ? `${c}${farmRows[0]}`
+        : `(${farmRows.map(r => `${c}${r}`).join('+')})`;
+      return `${sum}*0.2`;
+    })});
   exRow++;
-  // 기타 직접 추가 세액공제
-  if (inp.customCredits && inp.customCredits.length > 0) {
-    for (const cc of inp.customCredits) {
-      wr(exRow, cc.name, scenarios.map(()=>cc.amount), {bt:'hair',bb:'hair'});
-      exRow++;
-    }
-  }
-  wr(exRow, '중간예납세액',          scenarios.map(()=>inp.interimTax),         {bt:'hair',bb:'thin'});
+
+  // 총 납부할 세액 = 법인세 + 지방소득세 + 농특세
+  wr(exRow, '총 납부할 세액', sv('totalTax'), {b:true, f:yBrightFill, bt:'thin',
+    formulas: sf(c => `${c}${corpTaxRow}+${c}${localTaxRow}+${c}${farmTaxRow}`)});
   exRow++;
-  // 법인세/지방소득세/농특세 (orange)
-  wr(exRow, '법인세',     sv('corpTax'),  {b:true, f:orangeFill, bt:'thin',bb:'hair'});
-  exRow++;
-  wr(exRow, '지방소득세',  sv('localTax'), {b:true, f:orangeFill, bt:'hair',bb:'hair'});
-  exRow++;
-  wr(exRow, '농특세',     sv('farmTax'),  {b:true, f:orangeFill, bt:'hair',bb:'thin'});
-  exRow++;
-  // 총 납부할 세액 (bright yellow)
-  wr(exRow, '총 납부할 세액', sv('totalTax'), {b:true, f:yBrightFill, bt:'thin'});
-  exRow++;
-  // 당기순이익율
-  wr(exRow, '당기순이익율', scenarios.map(s=>s.netMargin), {pct:true, bt:'double',bb:'thin'});
+
+  // 당기순이익율 = 당기순이익 / 총매출
+  wr(exRow, '당기순이익율', scenarios.map(s=>s.netMargin), {pct:true, bt:'double',bb:'thin',
+    formulas: sf(c => `IF(${c}9=0,0,${c}18/${c}9)`)});
   exRow++;
 
   // === spacer ===
@@ -1681,8 +1825,12 @@ async function exportXlsx() {
     for (let col = dataCol1; col <= lastDataCol; col++) {
       const idx = col - dataCol1;
       const cl = row.getCell(col);
-      if (idx < vals.length) {
-        cl.value = typeof vals[idx] === 'number' ? Math.round(vals[idx]) : vals[idx];
+      const rawVal = idx < vals.length ? vals[idx] : undefined;
+      const resultVal = typeof rawVal === 'number' ? Math.round(rawVal) : rawVal;
+      if (o.formulas && idx < o.formulas.length && o.formulas[idx]) {
+        cl.value = { formula: o.formulas[idx], result: resultVal };
+      } else if (rawVal !== undefined) {
+        cl.value = resultVal;
       }
       cl.font = o.hdr ? f11b : f11; cl.fill = o.hdr ? blueFill : whiteFill;
       cl.numFmt = nf; cl.alignment = {vertical:'center'};
@@ -1697,12 +1845,29 @@ async function exportXlsx() {
     bc.alignment = {horizontal:'center',vertical:'center'};
     bc.border = mkBdr(o.bt||null, o.bb||'thin', 'thin', null);
   }
-  wrAux(auxStart, '고용증대공제가능액',          scenarios.map(()=>inp.empCredit),                    {hdr:true, bt:'thin',bb:'thin'});
-  wrAux(auxStart+1, '최저한세',                   sv('minTax'),                                        {hdr:true, bb:'thin', bigo:'법인세 결과와 금액이 같아야 함'});
-  wrAux(auxStart+2, '중소기업특별세액감면',         sv('smeLimit'),                                      {bt:'thin',bb:'thin'});
-  wrAux(auxStart+3, '연구인력개발비 대상 금액',     scenarios.map(()=>inp.rdAmount),                      {bt:'thin'});
-  wrAux(auxStart+4, '연구인력개발비 세액공제',      scenarios.map(()=>inp.rdAmount*0.25),                  {bt:'medium',bb:'thin'});
-  wrAux(auxStart+5, '연구인력개발비 세액공제 잔액',  scenarios.map(s=>inp.rdAmount*0.25 - s.rdCredit),     {});
+  // 최저한세 = 과세표준 × 7%
+  wrAux(auxStart, '최저한세', sv('minTax'), {hdr:true, bt:'thin',bb:'thin', bigo:'과세표준 × 7%',
+    formulas: sf(c => `${c}23*0.07`)});
+  let auxRow = auxStart + 1;
+  // 각 공제항목의 rawAmount(가능액) → 적용액 비교
+  for (let ci = 0; ci < creditList.length; ci++) {
+    const c0 = creditList[ci];
+    const label = (c0.name || '기타') + ' (입력/가능액)';
+    wrAux(auxRow, label, scenarios.map(s => s.credits[ci].rawAmount), {bt:'thin',bb:'thin'});
+    auxRow++;
+    const crRow = creditRowMap[ci].row;  // 본문 공제행 참조
+    const dedLabel = (c0.name || '기타') + ' (적용액)';
+    wrAux(auxRow, dedLabel, scenarios.map(s => s.credits[ci].deduction), {bb:'thin',
+      formulas: sf(c => `${c}${crRow}`)});  // 본문 공제행 참조
+    auxRow++;
+  }
+  // 농특세 과세표준 = 농특세 체크 항목 합계
+  wrAux(auxRow, '농특세 과세표준', sv('farmTaxBase'), {hdr:true, bt:'medium',bb:'thin', bigo:'농특세 체크 항목 공제합계',
+    formulas: sf(c => {
+      if (farmRows.length === 0) return '0';
+      return farmRows.map(r => `${c}${r}`).join('+');
+    })});
+  auxRow++;
 
   // Download
   const buf = await wb.xlsx.writeBuffer();
